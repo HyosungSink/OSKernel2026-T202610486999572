@@ -1,0 +1,188 @@
+name: Init + Eval Start
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: init-eval-start-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  init-and-start:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Rust nightly-2025-01-18
+        run: |
+          set -euo pipefail
+          rustup toolchain install nightly-2025-01-18 --profile minimal --component rust-src --component llvm-tools
+          rustup target add --toolchain nightly-2025-01-18 \
+            riscv64gc-unknown-none-elf \
+            loongarch64-unknown-none
+          rustup default nightly-2025-01-18
+          if ! rust-objcopy --version >/dev/null 2>&1; then
+            cargo install --locked cargo-binutils
+          fi
+
+      - name: Install host dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            qemu-system-misc \
+            qemu-utils \
+            dosfstools \
+            e2fsprogs \
+            xz-utils \
+            wget \
+            curl \
+            gcc \
+            g++ \
+            gcc-riscv64-linux-gnu \
+            g++-riscv64-linux-gnu \
+            make \
+            binutils \
+            clang \
+            lld
+
+      - name: Cache toolchains and build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/osk-toolchains
+            ~/.cargo/registry
+            ~/.cargo/git
+            kernel/starry-next/target
+            dev/full-suite
+          key: init-eval-start-${{ runner.os }}-${{ hashFiles('tools/run_full_local_suite.py', 'tools/build_full_rootfs.sh', 'tools/build_remaining_image.sh', 'kernel/starry-next/**/Cargo.lock', 'kernel/starry-next/**/Cargo.toml', 'Makefile') }}
+          restore-keys: |
+            init-eval-start-${{ runner.os }}-
+
+      - name: Prepare cross toolchains
+        shell: bash
+        run: |
+          set -euo pipefail
+          toolchain_cache="${XDG_CACHE_HOME:-$HOME/.cache}/osk-toolchains"
+          mkdir -p "$toolchain_cache"
+
+          ensure_toolchain_bin() {
+            local dir_name=$1
+            local compiler=$2
+            local url=$3
+            local archive="$toolchain_cache/$dir_name.tgz"
+            local extract_dir="$toolchain_cache/$dir_name"
+
+            if command -v "$compiler" >/dev/null 2>&1; then
+              return 0
+            fi
+
+            if [[ ! -x "$extract_dir/bin/$compiler" ]]; then
+              if [[ ! -f "$archive" ]]; then
+                curl -L --fail -o "$archive" "$url"
+              fi
+              tmp_extract="$(mktemp -d)"
+              tar xf "$archive" -C "$tmp_extract"
+              found_dir="$(find "$tmp_extract" -maxdepth 1 -mindepth 1 -type d | head -n 1)"
+              if [[ -z "$found_dir" || ! -x "$found_dir/bin/$compiler" ]]; then
+                echo "::error::invalid toolchain archive for $dir_name"
+                exit 1
+              fi
+              rm -rf "$extract_dir"
+              mv "$found_dir" "$extract_dir"
+              rm -rf "$tmp_extract"
+            fi
+
+            echo "$extract_dir/bin" >> "$GITHUB_PATH"
+          }
+
+          ensure_toolchain_bin \
+            riscv64-linux-musl-cross \
+            riscv64-linux-musl-gcc \
+            https://raw.githubusercontent.com/zhouzhouyi-hub/os-contest-image/master/riscv64-linux-musl-cross.tgz
+          ensure_toolchain_bin \
+            loongarch64-linux-musl-cross \
+            loongarch64-linux-musl-gcc \
+            https://raw.githubusercontent.com/zhouzhouyi-hub/os-contest-image/master/loongarch64-linux-musl-cross.tgz
+
+      - name: Initialize config and start evaluation (non-Docker)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dev/full-suite/logs
+          rm -f dev/full-suite/logs/ci-eval-start.out dev/full-suite/logs/official-rv.raw.out
+          run_start_epoch="$(date +%s)"
+          cores="$(nproc --all)"
+          ltp_shards="$(( (cores * 3 + 3) / 4 ))"
+          if [[ "$ltp_shards" -lt 1 ]]; then
+            ltp_shards=1
+          fi
+          cmd_basic="python3 tools/run_full_local_suite.py --subset basic-glibc-rv --quick-point-retest"
+          cmd_ltp="python3 tools/run_full_local_suite.py --subset ltp-glibc-rv --quick-point-retest --ltp-shards $ltp_shards"
+          echo "[ci] cores=$cores ltp_shards=$ltp_shards"
+          echo "[ci] running basic: $cmd_basic"
+          echo "[ci] running ltp:   $cmd_ltp"
+
+          set +e
+          bash -lc "$cmd_basic" 2>&1 | tee dev/full-suite/logs/ci-eval-start.out
+          basic_rc=${PIPESTATUS[0]}
+          bash -lc "$cmd_ltp" 2>&1 | tee -a dev/full-suite/logs/ci-eval-start.out
+          ltp_rc=${PIPESTATUS[0]}
+          set -e
+          echo "[ci] basic exit code: $basic_rc"
+          echo "[ci] ltp exit code: $ltp_rc"
+
+          if [[ "$basic_rc" -ne 0 ]]; then
+            echo "::error::basic runner failed with exit code: $basic_rc"
+            exit "$basic_rc"
+          fi
+          if [[ "$ltp_rc" -ne 0 ]]; then
+            echo "::error::ltp runner failed with exit code: $ltp_rc"
+            exit "$ltp_rc"
+          fi
+
+          if ! grep -q '\[stage\] build kernels quick' dev/full-suite/logs/ci-eval-start.out; then
+            echo "::error::runner did not reach quick kernel build stage"
+            exit 1
+          fi
+          if grep -Eq '\[fail\] .*missing group markers|\[fail\] .*incomplete group markers' dev/full-suite/logs/ci-eval-start.out; then
+            echo "::error::runner output contains incomplete/missing group markers"
+            exit 1
+          fi
+
+          if [[ ! -s dev/full-suite/logs/official-rv.raw.out ]]; then
+            echo "::error::runner did not produce rv serial output; eval startup not confirmed"
+            exit 1
+          fi
+          rv_log_epoch="$(stat -c %Y dev/full-suite/logs/official-rv.raw.out)"
+          if (( rv_log_epoch < run_start_epoch )); then
+            echo "::error::rv serial output is stale; eval startup not confirmed"
+            exit 1
+          fi
+
+          echo "[ci] evaluation startup confirmed"
+
+      - name: Upload evaluation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: init-eval-start-logs
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            dev/full-suite/score.txt
+            dev/full-suite/logs/**
+            logs/local_*.txt

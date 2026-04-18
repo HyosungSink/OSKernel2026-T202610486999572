@@ -1,0 +1,61 @@
+/kernel-rv
+/kernel-la
+
+# Generated kernel workspace and object files.
+/kernel/.work/
+/kernel/work/
+/kernel/build/
+/kernel/starry-next/target/
+/kernel/starry-next/arceos/target/
+/kernel/starry-next/vendor/scheduler/target/
+/kernel/starry-next/vendor/scheduler/Cargo.lock
+/kernel/starry-next/.cargo/
+/kernel/starry-next/.asxconfig.toml
+/kernel/starry-next/.axconfig.old.toml
+/kernel/starry-next/kernel/
+/kernel/starry-next/kernel-rv
+/kernel/starry-next/kernel-rv-rr
+/kernel/starry-next/kernel-la
+/kernel/starry-next/bin/axconfig-gen.host
+/kernel/starry-next/*.bin
+/kernel/starry-next/*.elf
+/kernel/starry-next/arceos/disk.img
+# Refreshed embedded runtime cache from `tools/refresh_embedded_runtime.sh`.
+# Files here are regenerated local build inputs; routine refreshes such as
+# `cyclictest` / `hackbench` binary changes should not be committed.
+/kernel/starry-next/embedded-runtime-refresh/**
+/kernel/starry-next/embedded-runtime-refresh.tmp/**
+
+# Optional runtime disk images mentioned in the contest docs.
+/disk.img
+/disk-la.img
+/setup.sh
+
+# Generated lwext4 static archives.
+/kernel/starry-next/vendor/lwext4_rust/c/lwext4/liblwext4-*.a
+
+# Local emulation artifacts; not required for `make all` or submission.
+/dev
+
+# Python cache from local validation scripts.
+__pycache__/
+*.py[cod]
+/tools/__pycache__/
+
+# Generated runtime-refresh byproducts from local full-suite runs.
+/kernel/starry-next/embedded-runtime-refresh/.osk_refresh_stamp
+/kernel/starry-next/embedded-runtime-refresh/*/*/.busybox_testcode.sh.raw
+/kernel/starry-next/embedded-runtime-refresh/*/*/busybox
+/kernel/starry-next/embedded-runtime-refresh/*/*/busybox_cmd.txt
+/kernel/starry-next/embedded-runtime-refresh/*/*/busybox_testcode.sh
+/kernel/starry-next/embedded-runtime-refresh/*/*/lib/
+
+# Common editor/OS temp files.
+*.swp
+*~
+.DS_Store
+Thumbs.db
+docs/
+logs/
+# Hidden for test
+!kernel/starry-next/vendor/**/[Rr][Ee][Aa][Dd][Mm][Ee].*

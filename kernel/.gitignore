@@ -1,0 +1,10 @@
+work/
+starry-next/target/
+starry-next/.cargo/
+starry-next/.axconfig.toml
+starry-next/.axconfig.old.toml
+starry-next/kernel-rv
+starry-next/kernel-rv-rr
+starry-next/kernel-la
+starry-next/*.bin
+starry-next/*.elf

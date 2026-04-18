@@ -1,0 +1,2875 @@
+diff --git a/Makefile b/Makefile
+index 4ddd7dc..db6b369 100644
+--- a/Makefile
++++ b/Makefile
+@@ -19,13 +19,13 @@ OUT_BIN := $(DIR)_$(ARCH)-qemu-virt.bin
+ 
+ all:
+ 	# Build for os competition
+-	RUSTUP_TOOLCHAIN=nightly-2025-01-18 $(MAKE) test_build ARCH=riscv64 AX_TESTCASE=oscomp BUS=mmio  FEATURES=lwext4_rs 
++	RUSTUP_TOOLCHAIN=nightly-2025-01-18 $(MAKE) test_build ARCH=riscv64 AX_TESTCASE=oscomp BUS=mmio FEATURES=lwext4_rs,sched_rr
+ 	# If loongarch64-linux-musl-cc is not found, please create a symbolic link to loongarch64-linux-musl-gcc
+ 	@if [ ! -f /opt/musl-loongarch64-1.2.2/bin/loongarch64-linux-musl-cc ]; then \
+ 		echo "loongarch64-linux-musl-cc not found, creating symbolic link to loongarch64-linux-musl-gcc"; \
+ 		cd /opt/musl-loongarch64-1.2.2/bin/ && ln -s loongarch64-linux-musl-gcc loongarch64-linux-musl-cc; \
+ 	fi
+-	RUSTUP_TOOLCHAIN=nightly-2025-01-18 $(MAKE) test_build ARCH=loongarch64 AX_TESTCASE=oscomp FEATURES=lwext4_rs
++	RUSTUP_TOOLCHAIN=nightly-2025-01-18 $(MAKE) test_build ARCH=loongarch64 AX_TESTCASE=oscomp FEATURES=lwext4_rs,sched_rr
+ 
+ TARGET_LIST := x86_64-unknown-none riscv64gc-unknown-none-elf aarch64-unknown-none
+ ifeq ($(filter $(TARGET),$(TARGET_LIST)),)
+diff --git a/apps/oscomp/testcase_list b/apps/oscomp/testcase_list
+index 2e116d6..067316e 100644
+--- a/apps/oscomp/testcase_list
++++ b/apps/oscomp/testcase_list
+@@ -1,2 +1,32 @@
+-./musl/basic/brk
+-./musl/basic/chdir
++/brk
++/chdir
++/clone
++/close
++/dup2
++/dup
++/execve
++/exit
++/fork
++/fstat
++/getcwd
++/getdents
++/getpid
++/getppid
++/gettimeofday
++/mkdir_
++/mmap
++/mount
++/munmap
++/openat
++/open
++/pipe
++/read
++/sleep
++/times
++/umount
++/uname
++/unlink
++/wait
++/waitpid
++/write
++/yield
+diff --git a/arceos/api/arceos_posix_api/src/imp/fd_ops.rs b/arceos/api/arceos_posix_api/src/imp/fd_ops.rs
+index 42b5a3a..537e944 100644
+--- a/arceos/api/arceos_posix_api/src/imp/fd_ops.rs
++++ b/arceos/api/arceos_posix_api/src/imp/fd_ops.rs
+@@ -11,6 +11,7 @@ use crate::ctypes;
+ use crate::imp::stdio::{stdin, stdout};
+ 
+ pub const AX_FILE_LIMIT: usize = 1024;
++pub(crate) const FD_CLOEXEC_FLAG: usize = 1;
+ 
+ #[allow(dead_code)]
+ pub trait FileLike: Send + Sync {
+@@ -20,10 +21,14 @@ pub trait FileLike: Send + Sync {
+     fn into_any(self: Arc<Self>) -> Arc<dyn core::any::Any + Send + Sync>;
+     fn poll(&self) -> LinuxResult<PollState>;
+     fn set_nonblocking(&self, nonblocking: bool) -> LinuxResult;
++    fn status_flags(&self) -> usize {
++        0
++    }
+ }
+ 
+ def_resource! {
+     pub static FD_TABLE: ResArc<RwLock<FlattenObjects<Arc<dyn FileLike>, AX_FILE_LIMIT>>> = ResArc::new();
++    pub static FD_FLAGS: ResArc<RwLock<FlattenObjects<usize, AX_FILE_LIMIT>>> = ResArc::new();
+ }
+ 
+ impl FD_TABLE {
+@@ -31,9 +36,24 @@ impl FD_TABLE {
+     pub fn copy_inner(&self) -> RwLock<FlattenObjects<Arc<dyn FileLike>, AX_FILE_LIMIT>> {
+         let table = self.read();
+         let mut new_table = FlattenObjects::new();
+-        let count = table.count();
+-        for i in 0..count {
+-            let _ = new_table.add_at(i, table.get(i).unwrap().clone());
++        for i in 0..AX_FILE_LIMIT {
++            if let Some(file) = table.get(i).cloned() {
++                let _ = new_table.add_at(i, file);
++            }
++        }
++        RwLock::new(new_table)
++    }
++}
++
++impl FD_FLAGS {
++    /// Return a copy of the inner flags table.
++    pub fn copy_inner(&self) -> RwLock<FlattenObjects<usize, AX_FILE_LIMIT>> {
++        let table = self.read();
++        let mut new_table = FlattenObjects::new();
++        for i in 0..AX_FILE_LIMIT {
++            if let Some(flags) = table.get(i).copied() {
++                let _ = new_table.add_at(i, flags);
++            }
+         }
+         RwLock::new(new_table)
+     }
+@@ -50,7 +70,62 @@ pub fn get_file_like(fd: c_int) -> LinuxResult<Arc<dyn FileLike>> {
+ 
+ /// Add a file to the file descriptor table.
+ pub fn add_file_like(f: Arc<dyn FileLike>) -> LinuxResult<c_int> {
+-    Ok(FD_TABLE.write().add(f).map_err(|_| LinuxError::EMFILE)? as c_int)
++    add_file_like_with_flags(f, 0)
++}
++
++fn add_file_like_with_flags(f: Arc<dyn FileLike>, flags: usize) -> LinuxResult<c_int> {
++    let fd = {
++        let mut table = FD_TABLE.write();
++        table.add(f).map_err(|_| LinuxError::EMFILE)? as usize
++    };
++    if FD_FLAGS
++        .write()
++        .add_at(fd, flags & FD_CLOEXEC_FLAG)
++        .is_err()
++    {
++        let _ = FD_TABLE.write().remove(fd);
++        return Err(LinuxError::EMFILE);
++    }
++    Ok(fd as c_int)
++}
++
++fn add_file_like_from_with_flags(
++    f: Arc<dyn FileLike>,
++    min_fd: usize,
++    flags: usize,
++) -> LinuxResult<c_int> {
++    if min_fd >= AX_FILE_LIMIT {
++        return Err(LinuxError::EINVAL);
++    }
++
++    let fd = {
++        let mut table = FD_TABLE.write();
++        let mut chosen = None;
++        for fd in min_fd..AX_FILE_LIMIT {
++            if table.get(fd).is_none() {
++                table
++                    .add_at(fd, f.clone())
++                    .map_err(|_| LinuxError::EMFILE)?;
++                chosen = Some(fd);
++                break;
++            }
++        }
++        chosen.ok_or(LinuxError::EMFILE)?
++    };
++
++    if FD_FLAGS
++        .write()
++        .add_at(fd, flags & FD_CLOEXEC_FLAG)
++        .is_err()
++    {
++        let _ = FD_TABLE.write().remove(fd);
++        return Err(LinuxError::EMFILE);
++    }
++    Ok(fd as c_int)
++}
++
++pub(crate) fn add_file_like_with_fd_flags(f: Arc<dyn FileLike>, flags: usize) -> LinuxResult<c_int> {
++    add_file_like_with_flags(f, flags)
+ }
+ 
+ /// Close a file by `fd`.
+@@ -59,6 +134,7 @@ pub fn close_file_like(fd: c_int) -> LinuxResult {
+         .write()
+         .remove(fd as usize)
+         .ok_or(LinuxError::EBADF)?;
++    let _ = FD_FLAGS.write().remove(fd as usize);
+     drop(f);
+     Ok(())
+ }
+@@ -66,15 +142,16 @@ pub fn close_file_like(fd: c_int) -> LinuxResult {
+ /// Close a file by `fd`.
+ pub fn sys_close(fd: c_int) -> c_int {
+     debug!("sys_close <= {}", fd);
+-    if (0..=2).contains(&fd) {
+-        return 0; // stdin, stdout, stderr
+-    }
+     syscall_body!(sys_close, close_file_like(fd).map(|_| 0))
+ }
+ 
+ fn dup_fd(old_fd: c_int) -> LinuxResult<c_int> {
++    dup_fd_with_flags(old_fd, 0, 0)
++}
++
++fn dup_fd_with_flags(old_fd: c_int, min_fd: usize, flags: usize) -> LinuxResult<c_int> {
+     let f = get_file_like(old_fd)?;
+-    let new_fd = add_file_like(f)?;
++    let new_fd = add_file_like_from_with_flags(f, min_fd, flags)?;
+     Ok(new_fd)
+ }
+ 
+@@ -102,11 +179,26 @@ pub fn sys_dup2(old_fd: c_int, new_fd: c_int) -> c_int {
+             return Err(LinuxError::EBADF);
+         }
+ 
++        let mut table = FD_TABLE.write();
++        if table.get(new_fd as usize).is_some() {
++            let _ = table.remove(new_fd as usize);
++        }
++        drop(table);
++        let mut flags_table = FD_FLAGS.write();
++        if flags_table.get(new_fd as usize).is_some() {
++            let _ = flags_table.remove(new_fd as usize);
++        }
++        drop(flags_table);
++
+         let f = get_file_like(old_fd)?;
+-        FD_TABLE
+-            .write()
++        let mut table = FD_TABLE.write();
++        table
+             .add_at(new_fd as usize, f)
+             .map_err(|_| LinuxError::EMFILE)?;
++        FD_FLAGS
++            .write()
++            .add_at(new_fd as usize, 0)
++            .map_err(|_| LinuxError::EMFILE)?;
+ 
+         Ok(new_fd)
+     })
+@@ -119,10 +211,33 @@ pub fn sys_fcntl(fd: c_int, cmd: c_int, arg: usize) -> c_int {
+     debug!("sys_fcntl <= fd: {} cmd: {} arg: {}", fd, cmd, arg);
+     syscall_body!(sys_fcntl, {
+         match cmd as u32 {
+-            ctypes::F_DUPFD => dup_fd(fd),
++            ctypes::F_GETFD => {
++                if FD_TABLE.read().get(fd as usize).is_none() {
++                    return Err(LinuxError::EBADF);
++                }
++                Ok(FD_FLAGS
++                    .read()
++                    .get(fd as usize)
++                    .copied()
++                    .unwrap_or(0) as c_int)
++            }
++            ctypes::F_SETFD => {
++                if FD_TABLE.read().get(fd as usize).is_none() {
++                    return Err(LinuxError::EBADF);
++                }
++                let mut flags = FD_FLAGS.write();
++                if flags.get(fd as usize).is_some() {
++                    let _ = flags.remove(fd as usize);
++                }
++                flags
++                    .add_at(fd as usize, arg & FD_CLOEXEC_FLAG)
++                    .map_err(|_| LinuxError::EMFILE)?;
++                Ok(0)
++            }
++            ctypes::F_GETFL => Ok(get_file_like(fd)?.status_flags() as c_int),
++            ctypes::F_DUPFD => dup_fd_with_flags(fd, arg, 0),
+             ctypes::F_DUPFD_CLOEXEC => {
+-                // TODO: Change fd flags
+-                dup_fd(fd)
++                dup_fd_with_flags(fd, arg, FD_CLOEXEC_FLAG)
+             }
+             ctypes::F_SETFL => {
+                 if fd == 0 || fd == 1 || fd == 2 {
+@@ -139,17 +254,58 @@ pub fn sys_fcntl(fd: c_int, cmd: c_int, arg: usize) -> c_int {
+     })
+ }
+ 
++pub fn close_on_exec_fds() {
++    let cloexec_fds = {
++        let flags = FD_FLAGS.read();
++        let mut fds = [None; AX_FILE_LIMIT];
++        for i in 0..AX_FILE_LIMIT {
++            if flags
++                .get(i)
++                .copied()
++                .is_some_and(|bits| bits & FD_CLOEXEC_FLAG != 0)
++            {
++                fds[i] = Some(i as c_int);
++            }
++        }
++        fds
++    };
++    for fd in cloexec_fds.into_iter().flatten() {
++        let _ = close_file_like(fd);
++    }
++}
++
++pub fn close_all_fds() {
++    let all_fds = {
++        let table = FD_TABLE.read();
++        let mut fds = [None; AX_FILE_LIMIT];
++        for i in 0..AX_FILE_LIMIT {
++            if table.get(i).is_some() {
++                fds[i] = Some(i as c_int);
++            }
++        }
++        fds
++    };
++    for fd in all_fds.into_iter().flatten() {
++        let _ = close_file_like(fd);
++    }
++}
++
+ #[ctor_bare::register_ctor]
+ fn init_stdio() {
+     let mut fd_table = flatten_objects::FlattenObjects::new();
++    let mut fd_flags = flatten_objects::FlattenObjects::new();
+     fd_table
+         .add_at(0, Arc::new(stdin()) as _)
+         .unwrap_or_else(|_| panic!()); // stdin
++    fd_flags.add_at(0, 0).unwrap_or_else(|_| panic!());
+     fd_table
+         .add_at(1, Arc::new(stdout()) as _)
+         .unwrap_or_else(|_| panic!()); // stdout
++    fd_flags.add_at(1, 0).unwrap_or_else(|_| panic!());
+     fd_table
+         .add_at(2, Arc::new(stdout()) as _)
+         .unwrap_or_else(|_| panic!()); // stderr
++    fd_flags.add_at(2, 0).unwrap_or_else(|_| panic!());
+     FD_TABLE.init_new(spin::RwLock::new(fd_table));
++    FD_FLAGS.init_new(spin::RwLock::new(fd_flags));
+ }
+diff --git a/arceos/api/arceos_posix_api/src/imp/fs.rs b/arceos/api/arceos_posix_api/src/imp/fs.rs
+index 73997ec..f3310bb 100644
+--- a/arceos/api/arceos_posix_api/src/imp/fs.rs
++++ b/arceos/api/arceos_posix_api/src/imp/fs.rs
+@@ -200,17 +200,24 @@ where
+     F: FnOnce(&str, &OpenOptions) -> Result<axfs::fops::File, E>,
+     D: FnOnce(&str, &OpenOptions) -> Result<axfs::fops::Directory, E>,
+ {
+-    open_file(filename, options)
+-        .map_err(Into::into)
+-        .map(|f| File::new(f, filename.into()))
+-        .and_then(File::add_to_fd_table)
+-        .or_else(|e| match e {
+-            LinuxError::EISDIR => open_dir(filename, options)
+-                .map_err(Into::into)
+-                .map(|d| Directory::new(d, filename.into()))
+-                .and_then(Directory::add_to_fd_table),
+-            _ => Err(e),
+-        })
++    match open_file(filename, options).map_err(Into::into) {
++        Ok(f) => {
++            if f.get_attr()?.file_type().is_dir() {
++                drop(f);
++                open_dir(filename, options)
++                    .map_err(Into::into)
++                    .map(|d| Directory::new(d, filename.into()))
++                    .and_then(Directory::add_to_fd_table)
++            } else {
++                File::new(f, filename.into()).add_to_fd_table()
++            }
++        }
++        Err(LinuxError::EISDIR) => open_dir(filename, options)
++            .map_err(Into::into)
++            .map(|d| Directory::new(d, filename.into()))
++            .and_then(Directory::add_to_fd_table),
++        Err(e) => Err(e),
++    }
+ }
+ 
+ /// Set the position of the file indicated by `fd`.
+diff --git a/arceos/api/arceos_posix_api/src/imp/io.rs b/arceos/api/arceos_posix_api/src/imp/io.rs
+index 269ce20..d78a79b 100644
+--- a/arceos/api/arceos_posix_api/src/imp/io.rs
++++ b/arceos/api/arceos_posix_api/src/imp/io.rs
+@@ -13,6 +13,9 @@ use axio::prelude::*;
+ pub fn sys_read(fd: c_int, buf: *mut c_void, count: usize) -> ctypes::ssize_t {
+     debug!("sys_read <= {} {:#x} {}", fd, buf as usize, count);
+     syscall_body!(sys_read, {
++        if count == 0 {
++            return Ok(0);
++        }
+         if buf.is_null() {
+             return Err(LinuxError::EFAULT);
+         }
+@@ -36,6 +39,9 @@ pub fn sys_read(fd: c_int, buf: *mut c_void, count: usize) -> ctypes::ssize_t {
+ pub fn sys_write(fd: c_int, buf: *const c_void, count: usize) -> ctypes::ssize_t {
+     debug!("sys_write <= {} {:#x} {}", fd, buf as usize, count);
+     syscall_body!(sys_write, {
++        if count == 0 {
++            return Ok(0);
++        }
+         if buf.is_null() {
+             return Err(LinuxError::EFAULT);
+         }
+@@ -62,9 +68,24 @@ pub unsafe fn sys_writev(fd: c_int, iov: *const ctypes::iovec, iocnt: c_int) ->
+         }
+ 
+         let iovs = unsafe { core::slice::from_raw_parts(iov, iocnt as usize) };
+-        let mut ret = 0;
++        let mut ret = 0isize;
+         for iov in iovs.iter() {
+-            ret += sys_write(fd, iov.iov_base, iov.iov_len);
++            if iov.iov_len == 0 {
++                continue;
++            }
++            let written = sys_write(fd, iov.iov_base, iov.iov_len) as isize;
++            if written < 0 {
++                if ret != 0 {
++                    return Ok(ret);
++                }
++                let errno =
++                    LinuxError::try_from((-written) as i32).unwrap_or(LinuxError::EIO);
++                return Err(errno);
++            }
++            ret += written;
++            if written as usize != iov.iov_len {
++                return Ok(ret);
++            }
+         }
+ 
+         Ok(ret)
+diff --git a/arceos/api/arceos_posix_api/src/imp/pipe.rs b/arceos/api/arceos_posix_api/src/imp/pipe.rs
+index 185a11e..f687408 100644
+--- a/arceos/api/arceos_posix_api/src/imp/pipe.rs
++++ b/arceos/api/arceos_posix_api/src/imp/pipe.rs
+@@ -1,11 +1,15 @@
+ use alloc::sync::Arc;
+ use core::ffi::c_int;
++use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+ 
+ use axerrno::{LinuxError, LinuxResult};
+ use axio::PollState;
+ use axsync::Mutex;
++use axtask::WaitQueue;
+ 
+-use super::fd_ops::{FileLike, add_file_like, close_file_like};
++use super::fd_ops::{
++    FD_CLOEXEC_FLAG, FileLike, add_file_like_with_fd_flags, close_file_like,
++};
+ use crate::ctypes;
+ 
+ #[derive(Copy, Clone, PartialEq)]
+@@ -15,7 +19,7 @@ enum RingBufferStatus {
+     Normal,
+ }
+ 
+-const RING_BUFFER_SIZE: usize = 256;
++const RING_BUFFER_SIZE: usize = 4096;
+ 
+ pub struct PipeRingBuffer {
+     arr: [u8; RING_BUFFER_SIZE],
+@@ -74,21 +78,44 @@ impl PipeRingBuffer {
+     }
+ }
+ 
++struct PipeShared {
++    buffer: Mutex<PipeRingBuffer>,
++    readers: AtomicUsize,
++    writers: AtomicUsize,
++    readable_wait: WaitQueue,
++    writable_wait: WaitQueue,
++}
++
+ pub struct Pipe {
+     readable: bool,
+-    buffer: Arc<Mutex<PipeRingBuffer>>,
++    shared: Arc<PipeShared>,
++    nonblocking: AtomicBool,
++}
++
++impl PipeShared {
++    fn new() -> Self {
++        Self {
++            buffer: Mutex::new(PipeRingBuffer::new()),
++            readers: AtomicUsize::new(1),
++            writers: AtomicUsize::new(1),
++            readable_wait: WaitQueue::new(),
++            writable_wait: WaitQueue::new(),
++        }
++    }
+ }
+ 
+ impl Pipe {
+     pub fn new() -> (Pipe, Pipe) {
+-        let buffer = Arc::new(Mutex::new(PipeRingBuffer::new()));
++        let shared = Arc::new(PipeShared::new());
+         let read_end = Pipe {
+             readable: true,
+-            buffer: buffer.clone(),
++            shared: shared.clone(),
++            nonblocking: AtomicBool::new(false),
+         };
+         let write_end = Pipe {
+             readable: false,
+-            buffer,
++            shared,
++            nonblocking: AtomicBool::new(false),
+         };
+         (read_end, write_end)
+     }
+@@ -102,7 +129,27 @@ impl Pipe {
+     }
+ 
+     pub fn write_end_close(&self) -> bool {
+-        Arc::strong_count(&self.buffer) == 1
++        self.shared.writers.load(Ordering::Acquire) == 0
++    }
++
++    pub fn read_end_close(&self) -> bool {
++        self.shared.readers.load(Ordering::Acquire) == 0
++    }
++
++    fn is_nonblocking(&self) -> bool {
++        self.nonblocking.load(Ordering::Acquire)
++    }
++}
++
++impl Drop for Pipe {
++    fn drop(&mut self) {
++        if self.readable {
++            self.shared.readers.fetch_sub(1, Ordering::AcqRel);
++            self.shared.writable_wait.notify_all(true);
++        } else {
++            self.shared.writers.fetch_sub(1, Ordering::AcqRel);
++            self.shared.readable_wait.notify_all(true);
++        }
+     }
+ }
+ 
+@@ -111,27 +158,33 @@ impl FileLike for Pipe {
+         if !self.readable() {
+             return Err(LinuxError::EPERM);
+         }
+-        let mut read_size = 0usize;
+         let max_len = buf.len();
++        if max_len == 0 {
++            return Ok(0);
++        }
+         loop {
+-            let mut ring_buffer = self.buffer.lock();
+-            let loop_read = ring_buffer.available_read();
+-            if loop_read == 0 {
++            let mut ring_buffer = self.shared.buffer.lock();
++            let available = ring_buffer.available_read();
++            if available == 0 {
+                 if self.write_end_close() {
+-                    return Ok(read_size);
++                    return Ok(0);
++                }
++                if self.is_nonblocking() {
++                    return Err(LinuxError::EAGAIN);
+                 }
+                 drop(ring_buffer);
+-                // Data not ready, wait for write end
+-                crate::sys_sched_yield(); // TODO: use synconize primitive
++                self.shared.readable_wait.wait_until(|| {
++                    self.write_end_close() || self.shared.buffer.lock().available_read() > 0
++                });
+                 continue;
+             }
+-            for _ in 0..loop_read {
+-                if read_size == max_len {
+-                    return Ok(read_size);
+-                }
+-                buf[read_size] = ring_buffer.read_byte();
+-                read_size += 1;
++            let read_size = available.min(max_len);
++            for i in 0..read_size {
++                buf[i] = ring_buffer.read_byte();
+             }
++            drop(ring_buffer);
++            self.shared.writable_wait.notify_all(true);
++            return Ok(read_size);
+         }
+     }
+ 
+@@ -141,22 +194,42 @@ impl FileLike for Pipe {
+         }
+         let mut write_size = 0usize;
+         let max_len = buf.len();
++        if max_len == 0 {
++            return Ok(0);
++        }
+         loop {
+-            let mut ring_buffer = self.buffer.lock();
++            if self.read_end_close() {
++                if write_size == 0 {
++                    return Err(LinuxError::EPIPE);
++                }
++                return Ok(write_size);
++            }
++            let mut ring_buffer = self.shared.buffer.lock();
+             let loop_write = ring_buffer.available_write();
+             if loop_write == 0 {
++                if self.is_nonblocking() {
++                    if write_size == 0 {
++                        return Err(LinuxError::EAGAIN);
++                    }
++                    return Ok(write_size);
++                }
+                 drop(ring_buffer);
+-                // Buffer is full, wait for read end to consume
+-                crate::sys_sched_yield(); // TODO: use synconize primitive
++                self.shared.writable_wait.wait_until(|| {
++                    self.read_end_close() || self.shared.buffer.lock().available_write() > 0
++                });
+                 continue;
+             }
+             for _ in 0..loop_write {
+                 if write_size == max_len {
++                    drop(ring_buffer);
++                    self.shared.readable_wait.notify_all(true);
+                     return Ok(write_size);
+                 }
+                 ring_buffer.write_byte(buf[write_size]);
+                 write_size += 1;
+             }
++            drop(ring_buffer);
++            self.shared.readable_wait.notify_all(true);
+         }
+     }
+ 
+@@ -178,16 +251,25 @@ impl FileLike for Pipe {
+     }
+ 
+     fn poll(&self) -> LinuxResult<PollState> {
+-        let buf = self.buffer.lock();
++        let buf = self.shared.buffer.lock();
+         Ok(PollState {
+-            readable: self.readable() && buf.available_read() > 0,
+-            writable: self.writable() && buf.available_write() > 0,
++            readable: self.readable() && (buf.available_read() > 0 || self.write_end_close()),
++            writable: self.writable() && buf.available_write() > 0 && !self.read_end_close(),
+         })
+     }
+ 
+     fn set_nonblocking(&self, _nonblocking: bool) -> LinuxResult {
++        self.nonblocking.store(_nonblocking, Ordering::Release);
+         Ok(())
+     }
++
++    fn status_flags(&self) -> usize {
++        if self.is_nonblocking() {
++            ctypes::O_NONBLOCK as usize
++        } else {
++            0
++        }
++    }
+ }
+ 
+ /// Create a pipe
+@@ -195,14 +277,32 @@ impl FileLike for Pipe {
+ /// Return 0 if succeed
+ pub fn sys_pipe(fds: &mut [c_int]) -> c_int {
+     debug!("sys_pipe <= {:#x}", fds.as_ptr() as usize);
++    sys_pipe2(fds, 0)
++}
++
++pub fn sys_pipe2(fds: &mut [c_int], flags: c_int) -> c_int {
+     syscall_body!(sys_pipe, {
+         if fds.len() != 2 {
+             return Err(LinuxError::EFAULT);
+         }
++        let flags = flags as u32;
++        let supported = ctypes::O_CLOEXEC | ctypes::O_NONBLOCK;
++        if flags & !supported != 0 {
++            return Err(LinuxError::EINVAL);
++        }
+ 
+         let (read_end, write_end) = Pipe::new();
+-        let read_fd = add_file_like(Arc::new(read_end))?;
+-        let write_fd = add_file_like(Arc::new(write_end)).inspect_err(|_| {
++        if flags & ctypes::O_NONBLOCK != 0 {
++            read_end.set_nonblocking(true)?;
++            write_end.set_nonblocking(true)?;
++        }
++        let fd_flags = if flags & ctypes::O_CLOEXEC != 0 {
++            FD_CLOEXEC_FLAG
++        } else {
++            0
++        };
++        let read_fd = add_file_like_with_fd_flags(Arc::new(read_end), fd_flags)?;
++        let write_fd = add_file_like_with_fd_flags(Arc::new(write_end), fd_flags).inspect_err(|_| {
+             close_file_like(read_fd).ok();
+         })?;
+ 
+diff --git a/arceos/api/arceos_posix_api/src/lib.rs b/arceos/api/arceos_posix_api/src/lib.rs
+index ca89f24..74d048b 100644
+--- a/arceos/api/arceos_posix_api/src/lib.rs
++++ b/arceos/api/arceos_posix_api/src/lib.rs
+@@ -41,7 +41,8 @@ pub use imp::time::{sys_clock_gettime, sys_get_time_of_day, sys_nanosleep};
+ 
+ #[cfg(feature = "fd")]
+ pub use imp::fd_ops::{
+-    FD_TABLE, add_file_like, get_file_like, sys_close, sys_dup, sys_dup2, sys_fcntl,
++    FD_FLAGS, FD_TABLE, add_file_like, close_all_fds, close_on_exec_fds, get_file_like, sys_close,
++    sys_dup, sys_dup2, sys_fcntl,
+ };
+ #[cfg(feature = "fs")]
+ pub use imp::fs::{
+@@ -59,7 +60,7 @@ pub use imp::net::{
+     sys_socket,
+ };
+ #[cfg(feature = "pipe")]
+-pub use imp::pipe::sys_pipe;
++pub use imp::pipe::{sys_pipe, sys_pipe2};
+ #[cfg(feature = "multitask")]
+ pub use imp::pthread::mutex::{
+     sys_pthread_mutex_init, sys_pthread_mutex_lock, sys_pthread_mutex_unlock,
+diff --git a/arceos/configs/platforms/loongarch64-qemu-virt.toml b/arceos/configs/platforms/loongarch64-qemu-virt.toml
+index e53934e..cda3aea 100644
+--- a/arceos/configs/platforms/loongarch64-qemu-virt.toml
++++ b/arceos/configs/platforms/loongarch64-qemu-virt.toml
+@@ -19,15 +19,15 @@ phys-memory-size = 0x800_0000         # uint
+ kernel-base-paddr = 0x8000_0000       # uint
+ 
+ # Base virtual address of the kernel image.
+-kernel-base-vaddr = "0xffff_0000_8000_0000"     # uint
++kernel-base-vaddr = "0x9000_0000_8000_0000"     # uint
+ # Linear mapping offset, for quick conversions between physical and virtual
+ # addresses.
+-phys-virt-offset = "0xffff_0000_0000_0000"      # uint
++phys-virt-offset = "0x9000_0000_0000_0000"      # uint
+ # Offset of bus address and phys address. some boards, the bus address is
+ # different from the physical address.
+ phys-bus-offset = 0                             # uint
+ # Kernel address space base.
+-kernel-aspace-base = "0xffff_0000_0000_0000"    # uint
++kernel-aspace-base = "0x9000_0000_0000_0000"    # uint
+ # Kernel address space size.
+ kernel-aspace-size = "0x0000_ffff_ffff_f000"    # uint
+ 
+diff --git a/arceos/modules/axfs/src/api/mod.rs b/arceos/modules/axfs/src/api/mod.rs
+index 0d46de2..6d959c6 100644
+--- a/arceos/modules/axfs/src/api/mod.rs
++++ b/arceos/modules/axfs/src/api/mod.rs
+@@ -88,6 +88,16 @@ pub fn rename(old: &str, new: &str) -> io::Result<()> {
+     crate::root::rename(old, new)
+ }
+ 
++/// Mount a RAM filesystem at `path`.
++pub fn mount_ramfs(path: &str) -> io::Result<()> {
++    crate::root::mount_ramfs(path)
++}
++
++/// Unmount the filesystem mounted at `path`.
++pub fn umount(path: &str) -> io::Result<()> {
++    crate::root::umount(path)
++}
++
+ /// check whether absolute path exists.
+ pub fn absolute_path_exists(path: &str) -> bool {
+     crate::root::lookup(None, path).is_ok()
+diff --git a/arceos/modules/axfs/src/fops.rs b/arceos/modules/axfs/src/fops.rs
+index 71311a7..118e37c 100644
+--- a/arceos/modules/axfs/src/fops.rs
++++ b/arceos/modules/axfs/src/fops.rs
+@@ -318,7 +318,7 @@ impl Directory {
+         if path.starts_with('/') {
+             Ok(None)
+         } else {
+-            Ok(Some(self.access_node(Cap::EXECUTE)?))
++            Ok(Some(self.access_node(Cap::empty())?))
+         }
+     }
+ 
+diff --git a/arceos/modules/axfs/src/fs/lwext4_rust.rs b/arceos/modules/axfs/src/fs/lwext4_rust.rs
+index 845e48f..e6494da 100644
+--- a/arceos/modules/axfs/src/fs/lwext4_rust.rs
++++ b/arceos/modules/axfs/src/fs/lwext4_rust.rs
+@@ -67,7 +67,7 @@ impl FileWrapper {
+ 
+     fn path_deal_with(&self, path: &str) -> String {
+         if path.starts_with('/') {
+-            warn!("path_deal_with: {}", path);
++            debug!("path_deal_with: {}", path);
+         }
+         let p = path.trim_matches('/'); // 首尾去除
+         if p.is_empty() || p == "." {
+diff --git a/arceos/modules/axfs/src/root.rs b/arceos/modules/axfs/src/root.rs
+index d6e3750..b40ca06 100644
+--- a/arceos/modules/axfs/src/root.rs
++++ b/arceos/modules/axfs/src/root.rs
+@@ -36,7 +36,7 @@ impl CURRENT_DIR {
+ }
+ 
+ struct MountPoint {
+-    path: &'static str,
++    path: String,
+     fs: Arc<dyn VfsOps>,
+ }
+ 
+@@ -48,7 +48,7 @@ struct RootDirectory {
+ static ROOT_DIR: LazyInit<Arc<RootDirectory>> = LazyInit::new();
+ 
+ impl MountPoint {
+-    pub fn new(path: &'static str, fs: Arc<dyn VfsOps>) -> Self {
++    pub fn new(path: String, fs: Arc<dyn VfsOps>) -> Self {
+         Self { path, fs }
+     }
+ }
+@@ -67,7 +67,7 @@ impl RootDirectory {
+         }
+     }
+ 
+-    pub fn mount(&self, path: &'static str, fs: Arc<dyn VfsOps>) -> AxResult {
++    pub fn mount(&self, path: &str, fs: Arc<dyn VfsOps>) -> AxResult {
+         if path == "/" {
+             return ax_err!(InvalidInput, "cannot mount root filesystem");
+         }
+@@ -80,12 +80,21 @@ impl RootDirectory {
+         // create the mount point in the main filesystem if it does not exist
+         self.main_fs.root_dir().create(path, FileType::Dir)?;
+         fs.mount(path, self.main_fs.root_dir().lookup(path)?)?;
+-        self.mounts.write().push(MountPoint::new(path, fs));
++        self.mounts
++            .write()
++            .push(MountPoint::new(path.into(), fs));
+         Ok(())
+     }
+ 
+-    pub fn _umount(&self, path: &str) {
+-        self.mounts.write().retain(|mp| mp.path != path);
++    pub fn umount(&self, path: &str) -> AxResult {
++        let mut mounts = self.mounts.write();
++        let before = mounts.len();
++        mounts.retain(|mp| mp.path != path);
++        if mounts.len() == before {
++            ax_err!(NotFound, "mount point not found")
++        } else {
++            Ok(())
++        }
+     }
+ 
+     pub fn contains(&self, path: &str) -> bool {
+@@ -108,10 +117,16 @@ impl RootDirectory {
+         // Find the filesystem that has the longest mounted path match
+         // TODO: more efficient, e.g. trie
+         for (i, mp) in self.mounts.read().iter().enumerate() {
++            let mount_path = &mp.path[1..];
+             // skip the first '/'
+-            if path.starts_with(&mp.path[1..]) && mp.path.len() - 1 > max_len {
+-                max_len = mp.path.len() - 1;
+-                idx = i;
++            if path == mount_path
++                || (path.starts_with(mount_path)
++                    && path.as_bytes().get(mount_path.len()) == Some(&b'/'))
++            {
++                if mp.path.len() - 1 > max_len {
++                    max_len = mp.path.len() - 1;
++                    idx = i;
++                }
+             }
+         }
+ 
+@@ -336,3 +351,29 @@ pub(crate) fn rename(old: &str, new: &str) -> AxResult {
+     }
+     parent_node_of(None, old).rename(old, new)
+ }
++
++fn normalize_mount_path(path: &str) -> AxResult<String> {
++    let mut path = absolute_path(path)?;
++    if path.len() > 1 {
++        path.truncate(path.trim_end_matches('/').len());
++    }
++    Ok(path)
++}
++
++pub(crate) fn mount_ramfs(path: &str) -> AxResult {
++    #[cfg(feature = "ramfs")]
++    {
++        let path = normalize_mount_path(path)?;
++        ROOT_DIR.mount(&path, mounts::ramfs())
++    }
++    #[cfg(not(feature = "ramfs"))]
++    {
++        let _ = path;
++        ax_err!(Unsupported, "ramfs support is disabled")
++    }
++}
++
++pub(crate) fn umount(path: &str) -> AxResult {
++    let path = normalize_mount_path(path)?;
++    ROOT_DIR.umount(&path)
++}
+diff --git a/arceos/modules/axhal/src/arch/loongarch64/context.rs b/arceos/modules/axhal/src/arch/loongarch64/context.rs
+index 4824e59..14e7ea4 100644
+--- a/arceos/modules/axhal/src/arch/loongarch64/context.rs
++++ b/arceos/modules/axhal/src/arch/loongarch64/context.rs
+@@ -46,6 +46,51 @@ impl TrapFrame {
+     pub const fn arg5(&self) -> usize {
+         self.regs[9] as _
+     }
++
++    /// Gets the instruction pointer.
++    pub const fn get_ip(&self) -> usize {
++        self.era
++    }
++
++    /// Gets the stack pointer.
++    pub const fn get_sp(&self) -> usize {
++        self.regs[3]
++    }
++
++    /// Sets the instruction pointer.
++    pub fn set_ip(&mut self, pc: usize) {
++        self.era = pc;
++    }
++
++    /// Sets the stack pointer.
++    pub fn set_sp(&mut self, sp: usize) {
++        self.regs[3] = sp;
++    }
++
++    /// Sets the return address.
++    pub fn set_ra(&mut self, ra: usize) {
++        self.regs[1] = ra;
++    }
++
++    /// Sets the first argument / return value register.
++    pub fn set_arg0(&mut self, a0: usize) {
++        self.regs[4] = a0;
++    }
++
++    /// Sets the second argument register.
++    pub fn set_arg1(&mut self, a1: usize) {
++        self.regs[5] = a1;
++    }
++
++    /// Sets the third argument register.
++    pub fn set_arg2(&mut self, a2: usize) {
++        self.regs[6] = a2;
++    }
++
++    /// Rewinds the PC so the trap epilogue lands back on the saved instruction.
++    pub fn rewind_pc_for_syscall(&mut self) {
++        self.era = self.era.wrapping_sub(4);
++    }
+ }
+ 
+ /// Context to enter user space.
+@@ -102,6 +147,16 @@ impl UspaceContext {
+         self.0.regs[4] = a0;
+     }
+ 
++    /// Sets the first argument register after `a0`.
++    pub const fn set_arg1(&mut self, a1: usize) {
++        self.0.regs[5] = a1;
++    }
++
++    /// Sets the second argument register after `a0`.
++    pub const fn set_arg2(&mut self, a2: usize) {
++        self.0.regs[6] = a2;
++    }
++
+     /// Enters user space.
+     ///
+     /// It restores the user registers and jumps to the user entry point
+diff --git a/arceos/modules/axhal/src/arch/loongarch64/trap.rs b/arceos/modules/axhal/src/arch/loongarch64/trap.rs
+index d66a0a5..d88c349 100644
+--- a/arceos/modules/axhal/src/arch/loongarch64/trap.rs
++++ b/arceos/modules/axhal/src/arch/loongarch64/trap.rs
+@@ -53,13 +53,16 @@ fn loongarch64_trap_handler(tf: &mut TrapFrame, from_user: bool) {
+             let irq_num: usize = estat.is().trailing_zeros() as usize;
+             handle_trap!(IRQ, irq_num);
+         }
+-        _ => {
+-            panic!(
+-                "Unhandled trap {:?} @ {:#x}:\n{:#x?}",
+-                estat.cause(),
+-                tf.era,
+-                tf
+-            );
+-        }
+-    }
+-}
++        _ => {
++            panic!(
++                "Unhandled trap {:?} @ {:#x}:\n{:#x?}",
++                estat.cause(),
++                tf.era,
++                tf
++            );
++        }
++    }
++    if from_user {
++        crate::trap::handle_user_return(tf);
++    }
++}
+diff --git a/arceos/modules/axhal/src/arch/riscv/context.rs b/arceos/modules/axhal/src/arch/riscv/context.rs
+index 5efd89d..9037960 100644
+--- a/arceos/modules/axhal/src/arch/riscv/context.rs
++++ b/arceos/modules/axhal/src/arch/riscv/context.rs
+@@ -81,6 +81,51 @@ impl TrapFrame {
+     pub const fn arg5(&self) -> usize {
+         self.regs.a5
+     }
++
++    /// Gets the instruction pointer.
++    pub const fn get_ip(&self) -> usize {
++        self.sepc
++    }
++
++    /// Gets the stack pointer.
++    pub const fn get_sp(&self) -> usize {
++        self.regs.sp
++    }
++
++    /// Sets the instruction pointer.
++    pub fn set_ip(&mut self, pc: usize) {
++        self.sepc = pc;
++    }
++
++    /// Sets the stack pointer.
++    pub fn set_sp(&mut self, sp: usize) {
++        self.regs.sp = sp;
++    }
++
++    /// Sets the return address.
++    pub fn set_ra(&mut self, ra: usize) {
++        self.regs.ra = ra;
++    }
++
++    /// Sets the first argument / return value register.
++    pub fn set_arg0(&mut self, a0: usize) {
++        self.regs.a0 = a0;
++    }
++
++    /// Sets the second argument register.
++    pub fn set_arg1(&mut self, a1: usize) {
++        self.regs.a1 = a1;
++    }
++
++    /// Sets the third argument register.
++    pub fn set_arg2(&mut self, a2: usize) {
++        self.regs.a2 = a2;
++    }
++
++    /// Rewinds the PC so the trap epilogue lands back on the saved instruction.
++    pub fn rewind_pc_for_syscall(&mut self) {
++        self.sepc = self.sepc.wrapping_sub(4);
++    }
+ }
+ 
+ /// Context to enter user space.
+@@ -99,6 +144,7 @@ impl UspaceContext {
+     pub fn new(entry: usize, ustack_top: VirtAddr, arg0: usize) -> Self {
+         const SPIE: usize = 1 << 5;
+         const SUM: usize = 1 << 18;
++        const FS_DIRTY: usize = 0b11 << 13;
+         Self(TrapFrame {
+             regs: GeneralRegisters {
+                 a0: arg0,
+@@ -106,7 +152,7 @@ impl UspaceContext {
+                 ..Default::default()
+             },
+             sepc: entry,
+-            sstatus: SPIE | SUM,
++            sstatus: SPIE | SUM | FS_DIRTY,
+         })
+     }
+ 
+@@ -140,6 +186,16 @@ impl UspaceContext {
+         self.0.regs.a0 = a0;
+     }
+ 
++    /// Sets the first argument register after `a0`.
++    pub const fn set_arg1(&mut self, a1: usize) {
++        self.0.regs.a1 = a1;
++    }
++
++    /// Sets the second argument register after `a0`.
++    pub const fn set_arg2(&mut self, a2: usize) {
++        self.0.regs.a2 = a2;
++    }
++
+     /// Enters user space.
+     ///
+     /// It restores the user registers and jumps to the user entry point
+diff --git a/arceos/modules/axhal/src/arch/riscv/trap.rs b/arceos/modules/axhal/src/arch/riscv/trap.rs
+index febf88e..9469e4e 100644
+--- a/arceos/modules/axhal/src/arch/riscv/trap.rs
++++ b/arceos/modules/axhal/src/arch/riscv/trap.rs
+@@ -68,4 +68,7 @@ fn riscv_trap_handler(tf: &mut TrapFrame, from_user: bool) {
+             tf
+         );
+     }
++    if from_user {
++        crate::trap::handle_user_return(tf);
++    }
+ }
+diff --git a/arceos/modules/axhal/src/trap.rs b/arceos/modules/axhal/src/trap.rs
+index a38f7e5..09f2899 100644
+--- a/arceos/modules/axhal/src/trap.rs
++++ b/arceos/modules/axhal/src/trap.rs
+@@ -1,5 +1,7 @@
+ //! Trap handling.
+ 
++use core::sync::atomic::{AtomicUsize, Ordering};
++
+ use linkme::distributed_slice as def_trap_handler;
+ use memory_addr::VirtAddr;
+ use page_table_entry::MappingFlags;
+@@ -22,6 +24,9 @@ pub static PAGE_FAULT: [fn(VirtAddr, MappingFlags, bool) -> bool];
+ #[def_trap_handler]
+ pub static SYSCALL: [fn(&TrapFrame, usize) -> isize];
+ 
++#[cfg(feature = "uspace")]
++static USER_RETURN_HANDLER: AtomicUsize = AtomicUsize::new(0);
++
+ #[allow(unused_macros)]
+ macro_rules! handle_trap {
+     ($trap:ident, $($args:tt)*) => {{
+@@ -43,3 +48,19 @@ macro_rules! handle_trap {
+ pub(crate) fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
+     SYSCALL[0](tf, syscall_num)
+ }
++
++/// Sets the handler that runs before returning to user space.
++#[cfg(feature = "uspace")]
++pub fn set_user_return_handler(handler: fn(&mut TrapFrame)) {
++    USER_RETURN_HANDLER.store(handler as usize, Ordering::Release);
++}
++
++/// Call the registered user-return handlers.
++#[cfg(feature = "uspace")]
++pub(crate) fn handle_user_return(tf: &mut TrapFrame) {
++    let handler = USER_RETURN_HANDLER.load(Ordering::Acquire);
++    if handler != 0 {
++        let handler: fn(&mut TrapFrame) = unsafe { core::mem::transmute(handler) };
++        handler(tf);
++    }
++}
+diff --git a/arceos/modules/axmm/src/aspace.rs b/arceos/modules/axmm/src/aspace.rs
+index 3c0a384..a63d235 100644
+--- a/arceos/modules/axmm/src/aspace.rs
++++ b/arceos/modules/axmm/src/aspace.rs
+@@ -307,11 +307,9 @@ impl AddrSpace {
+             return ax_err!(InvalidInput, "address not aligned");
+         }
+ 
+-        // TODO
+-        self.pt
+-            .protect_region(start, size, flags, true)
+-            .map_err(|_| AxError::BadState)?
+-            .ignore();
++        self.areas
++            .protect(start, size, |_| Some(flags), &mut self.pt)
++            .map_err(mapping_err_to_ax_err)?;
+         Ok(())
+     }
+ 
+@@ -362,11 +360,15 @@ impl AddrSpace {
+         let mut new_areas = MemorySet::new();
+         let mut buf = vec![0u8; PAGE_SIZE_4K];
+         for area in self.areas.iter() {
++            let new_backend = match area.backend() {
++                Backend::Alloc { .. } => Backend::new_alloc(true),
++                _ => area.backend().clone(),
++            };
+             let new_area = MemoryArea::new(
+                 area.start(),
+                 area.size(),
+                 area.flags(),
+-                area.backend().clone(),
++                new_backend,
+             );
+             new_areas
+                 .map(new_area, &mut new_pt, false)
+diff --git a/arceos/modules/axmm/src/lib.rs b/arceos/modules/axmm/src/lib.rs
+index ee2cc74..276d5b5 100644
+--- a/arceos/modules/axmm/src/lib.rs
++++ b/arceos/modules/axmm/src/lib.rs
+@@ -22,7 +22,10 @@ use memory_set::MappingError;
+ static KERNEL_ASPACE: LazyInit<SpinNoIrq<AddrSpace>> = LazyInit::new();
+ 
+ fn mapping_err_to_ax_err(err: MappingError) -> AxError {
+-    warn!("Mapping error: {:?}", err);
++    match err {
++        MappingError::AlreadyExists => debug!("Mapping error: {:?}", err),
++        _ => warn!("Mapping error: {:?}", err),
++    }
+     match err {
+         MappingError::InvalidParam => AxError::InvalidInput,
+         MappingError::AlreadyExists => AxError::AlreadyExists,
+diff --git a/configs/loongarch64.toml b/configs/loongarch64.toml
+index 3a9c41d..05811d3 100644
+--- a/configs/loongarch64.toml
++++ b/configs/loongarch64.toml
+@@ -1,6 +1,6 @@
+ [plat]
+ # The base address of the user space.
+-user-space-base = 0x1000
++user-space-base = 0x0
+ # The base address for user interpreter.
+ user-interp-base = 0x400_0000
+ # The size of the user space.
+diff --git a/src/main.rs b/src/main.rs
+index 28b3df3..273da10 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -10,39 +10,116 @@ extern crate axstd;
+ mod ctypes;
+ 
+ mod mm;
++mod signal;
+ mod syscall_imp;
+ mod task;
+ use alloc::{string::ToString, sync::Arc, vec};
++use alloc::{string::String, vec::Vec};
+ 
+ use axhal::arch::UspaceContext;
+ use axstd::println;
+ use axsync::Mutex;
+ use memory_addr::VirtAddr;
+ 
++const SCRIPT_ORDER: [&str; 10] = [
++    "/basic_testcode.sh",
++    "/busybox_testcode.sh",
++    "/lua_testcode.sh",
++    "/unixbench_testcode.sh",
++    "/iperf_testcode.sh",
++    "/libcbench_testcode.sh",
++    "/lmbench_testcode.sh",
++    "/netperf_testcode.sh",
++    "/cyclictest_testcode.sh",
++    "/ltp_testcode.sh",
++];
++
++fn run_user_program(args: Vec<String>) {
++    let argc = args.len();
++    let program_path = args
++        .first()
++        .cloned()
++        .unwrap_or_else(|| String::from("<unknown>"));
++    let display_name = args
++        .last()
++        .cloned()
++        .unwrap_or_else(|| String::from("<unknown>"));
++    let mut uspace = axmm::new_user_aspace(
++        VirtAddr::from_usize(axconfig::plat::USER_SPACE_BASE),
++        axconfig::plat::USER_SPACE_SIZE,
++    )
++    .expect("Failed to create user address space");
++    let (entry_vaddr, ustack_top, heap_bottom) =
++        mm::load_user_app(&program_path, &mut (args.into()), &mut uspace).unwrap();
++    let mut uctx = UspaceContext::new(entry_vaddr.into(), ustack_top, 0);
++    let argv_ptr = ustack_top.as_usize() + core::mem::size_of::<usize>();
++    uctx.set_retval(argc);
++    uctx.set_arg1(argv_ptr);
++    uctx.set_arg2(ustack_top.as_usize() + (argc + 2) * core::mem::size_of::<usize>());
++    let user_task = task::spawn_user_task(
++        Arc::new(Mutex::new(uspace)),
++        uctx,
++        heap_bottom.as_usize() as u64,
++    );
++    let exit_code = user_task.join();
++    info!("User task {} exited with code: {:?}", display_name, exit_code);
++}
++
++fn discover_test_scripts() -> Option<Vec<String>> {
++    if !axfs::api::absolute_path_exists("/busybox") {
++        return None;
++    }
++
++    let mut discovered = Vec::new();
++    let dir = axfs::api::read_dir("/").ok()?;
++    for entry in dir {
++        let entry = entry.ok()?;
++        let path = entry.path();
++        if path.ends_with("_testcode.sh") {
++            discovered.push(path);
++        }
++    }
++    if discovered.is_empty() {
++        return None;
++    }
++
++    discovered.sort_unstable();
++    let mut ordered = Vec::new();
++    for script in SCRIPT_ORDER {
++        if discovered.iter().any(|path| path == script) {
++            ordered.push(script.to_string());
++        }
++    }
++    for script in discovered {
++        if !ordered.iter().any(|path| path == &script) {
++            ordered.push(script);
++        }
++    }
++    Some(ordered)
++}
++
+ #[unsafe(no_mangle)]
+ fn main() {
++    signal::init();
++    if let Some(scripts) = discover_test_scripts() {
++        for script in scripts {
++            run_user_program(vec![
++                "/busybox".to_string(),
++                "sh".to_string(),
++                script,
++            ]);
++        }
++        return;
++    }
++
+     let testcases = option_env!("AX_TESTCASES_LIST")
+         .unwrap_or_else(|| "Please specify the testcases list by making user_apps")
+         .split(',')
+         .filter(|&x| !x.is_empty());
+-    println!("#### OS COMP TEST GROUP START basic-musl ####");
++    println!("#### OS COMP TEST GROUP START basic ####");
+     for testcase in testcases {
+         println!("Testing {}: ", testcase.split('/').next_back().unwrap());
+-
+-        let args = vec![testcase.to_string()];
+-        let mut uspace = axmm::new_user_aspace(
+-            VirtAddr::from_usize(axconfig::plat::USER_SPACE_BASE),
+-            axconfig::plat::USER_SPACE_SIZE,
+-        )
+-        .expect("Failed to create user address space");
+-        let (entry_vaddr, ustack_top) = mm::load_user_app(&mut (args.into()), &mut uspace).unwrap();
+-        let user_task = task::spawn_user_task(
+-            Arc::new(Mutex::new(uspace)),
+-            UspaceContext::new(entry_vaddr.into(), ustack_top, 2333),
+-            0,
+-        );
+-        let exit_code = user_task.join();
+-        info!("User task {} exited with code: {:?}", testcase, exit_code);
++        run_user_program(vec![testcase.to_string()]);
+     }
+-    println!("#### OS COMP TEST GROUP END basic-musl ####");
++    println!("#### OS COMP TEST GROUP END basic ####");
+ }
+diff --git a/src/mm.rs b/src/mm.rs
+index f93a455..496e1ed 100644
+--- a/src/mm.rs
++++ b/src/mm.rs
+@@ -10,10 +10,114 @@ use axhal::{
+ 
+ use axmm::AddrSpace;
+ use axtask::TaskExtRef;
+-use kernel_elf_parser::{AuxvEntry, ELFParser, app_stack_region};
++use kernel_elf_parser::{AuxvEntry, AuxvType, ELFParser, app_stack_region};
+ use memory_addr::{MemoryAddr, PAGE_SIZE_4K, VirtAddr};
+ use xmas_elf::{ElfFile, program::SegmentData};
+ 
++#[cfg(target_arch = "riscv64")]
++const EMBEDDED_MUSL_INTERP: &[u8] =
++    include_bytes!("/opt/riscv64-linux-musl-cross/riscv64-linux-musl/lib/libc.so");
++
++#[cfg(target_arch = "loongarch64")]
++const EMBEDDED_MUSL_INTERP: &[u8] =
++    include_bytes!("/opt/loongarch64-linux-musl-cross/loongarch64-linux-musl/lib/libc.so");
++
++fn read_user_image(path: &str) -> AxResult<alloc::vec::Vec<u8>> {
++    match axfs::api::read(path) {
++        Ok(data) => Ok(data),
++        Err(AxError::NotFound)
++            if path == "./musl/lib/libc.so"
++                || path == "/lib/ld-linux-riscv64-lp64d.so.1"
++                || path == "/lib64/ld-linux-loongarch-lp64d.so.1" =>
++        {
++            Ok(EMBEDDED_MUSL_INTERP.to_vec())
++        }
++        Err(err) => Err(err),
++    }
++}
++
++fn map_single_elf(path: &str, elf_parser: &ELFParser, uspace: &mut AddrSpace) -> AxResult {
++    let elf = elf_parser.elf();
++    for segement in elf_parser.ph_load() {
++        debug!(
++            "Mapping ELF segment: [{:#x?}, {:#x?}) flags: {:#x?}",
++            segement.vaddr,
++            segement.vaddr + segement.memsz as usize,
++            segement.flags
++        );
++        let seg_pad = segement.vaddr.align_offset_4k();
++        assert_eq!(seg_pad, segement.offset % PAGE_SIZE_4K);
++
++        let seg_align_size =
++            (segement.memsz as usize + seg_pad + PAGE_SIZE_4K - 1) & !(PAGE_SIZE_4K - 1);
++        let seg_start = segement.vaddr.align_down_4k();
++        let seg_end = seg_start + seg_align_size;
++        let mut map_vaddr = seg_start;
++        while map_vaddr < seg_end {
++            match uspace.page_table().query(map_vaddr) {
++                Ok((_, flags, _)) => {
++                    let merged = flags | segement.flags;
++                    if merged != flags {
++                        uspace.protect(map_vaddr, PAGE_SIZE_4K, merged)?;
++                    }
++                }
++                Err(_) => {
++                    if let Err(err) =
++                        uspace.map_alloc(map_vaddr, PAGE_SIZE_4K, segement.flags, true)
++                    {
++                        warn!(
++                            "map_alloc failed for {} page {:#x} flags {:?}",
++                            path, map_vaddr, segement.flags
++                        );
++                        return Err(err);
++                    }
++                }
++            }
++            map_vaddr += PAGE_SIZE_4K;
++        }
++        let seg_data = elf
++            .input
++            .get(segement.offset..segement.offset + segement.filesz as usize)
++            .ok_or(AxError::InvalidData)?;
++        uspace.write(segement.vaddr, seg_data)?;
++        #[cfg(target_arch = "riscv64")]
++        unsafe {
++            core::arch::asm!("fence.i");
++        }
++    }
++    Ok(())
++}
++
++fn elf_heap_bottom(elf_parser: &ELFParser) -> VirtAddr {
++    elf_parser
++        .ph_load()
++        .iter()
++        .map(|seg| (seg.vaddr + seg.memsz as usize).align_up_4k())
++        .max()
++        .unwrap_or_else(|| elf_parser.entry().into())
++}
++
++fn elf_phdr_addr(elf_parser: &ELFParser) -> usize {
++    if let Some(phdr) = elf_parser
++        .elf()
++        .program_iter()
++        .find(|ph| ph.get_type() == Ok(xmas_elf::program::Type::Phdr))
++    {
++        return phdr.virtual_addr() as usize + elf_parser.base();
++    }
++
++    let phoff = elf_parser.elf().header.pt2.ph_offset() as usize;
++    if let Some(load) = elf_parser.elf().program_iter().find(|ph| {
++        ph.get_type() == Ok(xmas_elf::program::Type::Load)
++            && ph.offset() as usize <= phoff
++            && phoff < ph.offset() as usize + ph.file_size() as usize
++    }) {
++        return elf_parser.base() + load.virtual_addr() as usize + phoff - load.offset() as usize;
++    }
++
++    phoff + elf_parser.base()
++}
++
+ /// Map the elf file to the user address space.
+ ///
+ /// # Arguments
+@@ -24,11 +128,17 @@ use xmas_elf::{ElfFile, program::SegmentData};
+ /// # Returns
+ /// - The entry point of the user app.
+ fn map_elf(
+-    args: &mut VecDeque<String>,
++    program_path: &str,
++    _args: &mut VecDeque<String>,
+     elf_parser: &ELFParser,
+     uspace: &mut AddrSpace,
+ ) -> AxResult<(VirtAddr, [AuxvEntry; 17])> {
+     let elf = elf_parser.elf();
++    map_single_elf(program_path, elf_parser, uspace)?;
++    let mut auxv = elf_parser.auxv_vector(PAGE_SIZE_4K);
++    if let Some(entry) = auxv.iter_mut().find(|entry| entry.get_type() == AuxvType::PHDR) {
++        *entry.value_mut_ref() = elf_phdr_addr(elf_parser);
++    }
+     if let Some(interp) = elf
+         .program_iter()
+         .find(|ph| ph.get_type() == Ok(xmas_elf::program::Type::Interp))
+@@ -38,62 +148,38 @@ fn map_elf(
+             _ => panic!("Invalid data in Interp Elf Program Header"),
+         };
+ 
+-        let interp_path = from_utf8(interp).map_err(|_| AxError::InvalidInput)?;
+-        // remove trailing '\0'
+-        let mut real_interp_path =
+-            axfs::api::canonicalize(interp_path.trim_matches(char::from(0)))?;
+-        if real_interp_path == "/lib/ld-linux-riscv64-lp64.so.1"
+-            || real_interp_path == "/lib64/ld-linux-loongarch-lp64d.so.1"
+-        {
+-            // TODO: Use soft link
+-            real_interp_path = String::from("./musl/lib/libc.so");
+-        }
++        let interp_path = from_utf8(interp)
++            .map_err(|_| AxError::InvalidInput)?
++            .trim_matches(char::from(0));
++        let real_interp_path = match interp_path {
++            "/lib/ld-linux-riscv64-lp64d.so.1"
++            | "/lib/ld-musl-riscv64.so.1"
++            | "/lib64/ld-linux-loongarch-lp64d.so.1"
++            | "/lib/ld-musl-loongarch64.so.1" => String::from("./musl/lib/libc.so"),
++            _ => axfs::api::canonicalize(interp_path)?,
++        };
+ 
+-        let interp_data = axfs::api::read(real_interp_path.as_str())?;
++        let interp_data = read_user_image(real_interp_path.as_str())?;
+         let interp_elf = ElfFile::new(&interp_data).map_err(|_| AxError::InvalidData)?;
+         let uspace_base = uspace.base().as_usize();
+ 
+         let interp_elf_parser = ELFParser::new(
+             &interp_elf,
+             axconfig::plat::USER_INTERP_BASE,
+-            Some(uspace_base as isize),
++            None,
+             uspace_base,
+         )
+         .map_err(|_| AxError::InvalidData)?;
+-        // Set the first argument to the path of the user app.
+-        args.push_front(real_interp_path);
+-        return map_elf(args, &interp_elf_parser, uspace);
+-    }
+-    for segement in elf_parser.ph_load() {
+-        debug!(
+-            "Mapping ELF segment: [{:#x?}, {:#x?}) flags: {:#x?}",
+-            segement.vaddr,
+-            segement.vaddr + segement.memsz as usize,
+-            segement.flags
+-        );
+-        let seg_pad = segement.vaddr.align_offset_4k();
+-        assert_eq!(seg_pad, segement.offset % PAGE_SIZE_4K);
+-
+-        let seg_align_size =
+-            (segement.memsz as usize + seg_pad + PAGE_SIZE_4K - 1) & !(PAGE_SIZE_4K - 1);
+-        uspace.map_alloc(
+-            segement.vaddr.align_down_4k(),
+-            seg_align_size,
+-            segement.flags,
+-            true,
+-        )?;
+-        let seg_data = elf
+-            .input
+-            .get(segement.offset..segement.offset + segement.filesz as usize)
+-            .ok_or(AxError::InvalidData)?;
+-        uspace.write(segement.vaddr, seg_data)?;
+-        // TDOO: flush the I-cache
++        map_single_elf(real_interp_path.as_str(), &interp_elf_parser, uspace)?;
++        for entry in &mut auxv {
++            if entry.get_type() == kernel_elf_parser::AuxvType::BASE {
++                *entry.value_mut_ref() = interp_elf_parser.base();
++                break;
++            }
++        }
++        return Ok((interp_elf_parser.entry().into(), auxv));
+     }
+-
+-    Ok((
+-        elf_parser.entry().into(),
+-        elf_parser.auxv_vector(PAGE_SIZE_4K),
+-    ))
++    Ok((elf_parser.entry().into(), auxv))
+ }
+ 
+ /// Load the user app to the user address space.
+@@ -105,14 +191,16 @@ fn map_elf(
+ /// # Returns
+ /// - The entry point of the user app.
+ /// - The stack pointer of the user app.
++/// - The initial program break.
+ pub fn load_user_app(
++    program_path: &str,
+     args: &mut VecDeque<String>,
+     uspace: &mut AddrSpace,
+-) -> AxResult<(VirtAddr, VirtAddr)> {
++) -> AxResult<(VirtAddr, VirtAddr, VirtAddr)> {
+     if args.is_empty() {
+         return Err(AxError::InvalidInput);
+     }
+-    let file_data = axfs::api::read(args[0].as_str())?;
++    let file_data = read_user_image(program_path)?;
+     let elf = ElfFile::new(&file_data).map_err(|_| AxError::InvalidData)?;
+ 
+     let uspace_base = uspace.base().as_usize();
+@@ -124,7 +212,8 @@ pub fn load_user_app(
+     )
+     .map_err(|_| AxError::InvalidData)?;
+ 
+-    let (entry, mut auxv) = map_elf(args, &elf_parser, uspace)?;
++    let heap_bottom = elf_heap_bottom(&elf_parser);
++    let (entry, mut auxv) = map_elf(program_path, args, &elf_parser, uspace)?;
+     // The user stack is divided into two parts:
+     // `ustack_start` -> `ustack_pointer`: It is the stack space that users actually read and write.
+     // `ustack_pointer` -> `ustack_end`: It is the space that contains the arguments, environment variables and auxv passed to the app.
+@@ -162,12 +251,22 @@ pub fn load_user_app(
+         MappingFlags::READ | MappingFlags::WRITE | MappingFlags::USER,
+         true,
+     )?;
++    crate::signal::map_signal_trampoline(uspace)?;
+ 
+     let user_sp = ustack_end - stack_data.len();
++    info!(
++        "load_user_app path={} entry={:#x} user_sp={:#x} phdr={:#x} phent={} phnum={}",
++        program_path,
++        entry.as_usize(),
++        user_sp.as_usize(),
++        auxv[0].value(),
++        auxv[1].value(),
++        auxv[2].value(),
++    );
+ 
+     uspace.write(user_sp, stack_data.as_slice())?;
+ 
+-    Ok((entry, user_sp))
++    Ok((entry, user_sp, heap_bottom))
+ }
+ 
+ #[register_trap_handler(PAGE_FAULT)]
+@@ -179,10 +278,18 @@ fn handle_page_fault(vaddr: VirtAddr, access_flags: MappingFlags, is_user: bool)
+             .lock()
+             .handle_page_fault(vaddr, access_flags)
+         {
++            let trap = crate::task::read_trapframe_from_kstack(
++                axtask::current().get_kernel_stack_top().unwrap(),
++            );
+             warn!(
+-                "{}: segmentation fault at {:#x}, exit!",
++                "{}: segmentation fault at {:#x}, ip={:#x}, sp={:#x}, a0={:#x}, a1={:#x}, a2={:#x}, exit!",
+                 axtask::current().id_name(),
+-                vaddr
++                vaddr,
++                trap.get_ip(),
++                trap.get_sp(),
++                trap.arg0(),
++                trap.arg1(),
++                trap.arg2(),
+             );
+             axtask::exit(-1);
+         }
+diff --git a/src/syscall_imp/fs/ctl.rs b/src/syscall_imp/fs/ctl.rs
+index f62c80f..483ba6e 100644
+--- a/src/syscall_imp/fs/ctl.rs
++++ b/src/syscall_imp/fs/ctl.rs
+@@ -1,12 +1,39 @@
+ use core::ffi::{c_char, c_int, c_void};
+ 
+ use alloc::string::ToString;
+-use arceos_posix_api::AT_FDCWD;
++use arceos_posix_api::{AT_FDCWD, get_file_like};
+ use axerrno::{AxError, LinuxError};
+ use axtask::{TaskExtRef, current};
+ 
+ use crate::syscall_body;
+ 
++const S_IFMT: u32 = 0o170000;
++const S_IFCHR: u32 = 0o020000;
++const TCGETS: usize = 0x5401;
++const TIOCGPGRP: usize = 0x540F;
++const TIOCSPGRP: usize = 0x5410;
++const TIOCGWINSZ: usize = 0x5413;
++
++#[repr(C)]
++#[derive(Clone, Copy, Default)]
++struct Termios {
++    c_iflag: u32,
++    c_oflag: u32,
++    c_cflag: u32,
++    c_lflag: u32,
++    c_line: u8,
++    c_cc: [u8; 19],
++}
++
++#[repr(C)]
++#[derive(Clone, Copy, Default)]
++struct WinSize {
++    ws_row: u16,
++    ws_col: u16,
++    ws_xpixel: u16,
++    ws_ypixel: u16,
++}
++
+ /// The ioctl() system call manipulates the underlying device parameters
+ /// of special files.
+ ///
+@@ -15,10 +42,50 @@ use crate::syscall_body;
+ /// * `op` - The request code. It is of type unsigned long in glibc and BSD,
+ ///   and of type int in musl and other UNIX systems.
+ /// * `argp` - The argument to the request. It is a pointer to a memory location
+-pub(crate) fn sys_ioctl(_fd: i32, _op: usize, _argp: *mut c_void) -> i32 {
++pub(crate) fn sys_ioctl(fd: i32, op: usize, argp: *mut c_void) -> i32 {
+     syscall_body!(sys_ioctl, {
+-        warn!("Unimplemented syscall: SYS_IOCTL");
+-        Ok(0)
++        let file = get_file_like(fd)?;
++        let stat = file.stat()?;
++        if stat.st_mode & S_IFMT != S_IFCHR {
++            return Err(LinuxError::ENOTTY);
++        }
++
++        match op {
++            TCGETS => {
++                if argp.is_null() {
++                    return Err(LinuxError::EFAULT);
++                }
++                unsafe {
++                    *(argp as *mut Termios) = Termios::default();
++                }
++                Ok(0)
++            }
++            TIOCGWINSZ => {
++                if argp.is_null() {
++                    return Err(LinuxError::EFAULT);
++                }
++                unsafe {
++                    *(argp as *mut WinSize) = WinSize {
++                        ws_row: 24,
++                        ws_col: 80,
++                        ws_xpixel: 0,
++                        ws_ypixel: 0,
++                    };
++                }
++                Ok(0)
++            }
++            TIOCGPGRP => {
++                if argp.is_null() {
++                    return Err(LinuxError::EFAULT);
++                }
++                unsafe {
++                    *(argp as *mut i32) = current().task_ext().proc_id as i32;
++                }
++                Ok(0)
++            }
++            TIOCSPGRP => Ok(0),
++            _ => Err(LinuxError::ENOTTY),
++        }
+     })
+ }
+ 
+@@ -39,6 +106,48 @@ pub(crate) fn sys_chdir(path: *const c_char) -> c_int {
+         })
+ }
+ 
++pub(crate) fn sys_mount(
++    source: *const c_char,
++    target: *const c_char,
++    fs_type: *const c_char,
++    flags: usize,
++    _data: *const c_void,
++) -> isize {
++    let source = arceos_posix_api::char_ptr_to_str(source).unwrap_or("");
++    let target = match arceos_posix_api::char_ptr_to_str(target) {
++        Ok(path) => path,
++        Err(_) => return LinuxError::EFAULT.code() as isize,
++    };
++    let fs_type = arceos_posix_api::char_ptr_to_str(fs_type).unwrap_or("");
++
++    syscall_body!(sys_mount, {
++        if flags != 0 {
++            info!("ignoring mount flags: {flags:#x}");
++        }
++        if !matches!(fs_type, "" | "vfat" | "fat" | "tmpfs" | "ramfs") {
++            return Err(LinuxError::ENODEV);
++        }
++        info!("mount source={source} target={target} fstype={fs_type}");
++        axfs::api::mount_ramfs(target)?;
++        Ok(0)
++    })
++}
++
++pub(crate) fn sys_umount(target: *const c_char, flags: c_int) -> isize {
++    let target = match arceos_posix_api::char_ptr_to_str(target) {
++        Ok(path) => path,
++        Err(_) => return LinuxError::EFAULT.code() as isize,
++    };
++
++    syscall_body!(sys_umount, {
++        if flags != 0 {
++            info!("ignoring umount flags: {flags:#x}");
++        }
++        axfs::api::umount(target)?;
++        Ok(0)
++    })
++}
++
+ pub(crate) fn sys_mkdirat(dirfd: i32, path: *const c_char, mode: u32) -> c_int {
+     let path = match arceos_posix_api::char_ptr_to_str(path) {
+         Ok(path) => path,
+@@ -65,6 +174,10 @@ pub(crate) fn sys_mkdirat(dirfd: i32, path: *const c_char, mode: u32) -> c_int {
+         })
+ }
+ 
++pub(crate) fn sys_umask(mask: u32) -> isize {
++    current().task_ext().swap_umask(mask) as isize
++}
++
+ #[repr(C)]
+ #[derive(Debug, Clone, Copy)]
+ struct DirEnt {
+diff --git a/src/syscall_imp/fs/fd_ops.rs b/src/syscall_imp/fs/fd_ops.rs
+index 640950c..258c3d2 100644
+--- a/src/syscall_imp/fs/fd_ops.rs
++++ b/src/syscall_imp/fs/fd_ops.rs
+@@ -1,15 +1,54 @@
+ use core::ffi::c_int;
+ 
+ use arceos_posix_api as api;
++use axerrno::LinuxError;
++
++use crate::syscall_body;
+ 
+ pub(crate) fn sys_dup(old_fd: c_int) -> c_int {
+     api::sys_dup(old_fd)
+ }
+ 
+-pub(crate) fn sys_dup3(old_fd: c_int, new_fd: c_int) -> c_int {
+-    api::sys_dup2(old_fd, new_fd)
++pub(crate) fn sys_dup3(old_fd: c_int, new_fd: c_int, flags: c_int) -> c_int {
++    syscall_body!(sys_dup3, {
++        fn map_errno(code: i32) -> LinuxError {
++            match code {
++                x if x == LinuxError::EBADF.code() => LinuxError::EBADF,
++                x if x == LinuxError::EMFILE.code() => LinuxError::EMFILE,
++                _ => LinuxError::EINVAL,
++            }
++        }
++
++        let flags = flags as u32;
++        if old_fd == new_fd {
++            return Err(LinuxError::EINVAL);
++        }
++        if flags & !(api::ctypes::O_CLOEXEC) != 0 {
++            return Err(LinuxError::EINVAL);
++        }
++
++        let duped = api::sys_dup2(old_fd, new_fd);
++        if duped < 0 {
++            return Err(map_errno((-duped) as i32));
++        }
++
++        let fd_flags = if flags & api::ctypes::O_CLOEXEC != 0 {
++            1
++        } else {
++            0
++        };
++        let setfd = api::sys_fcntl(new_fd, api::ctypes::F_SETFD as _, fd_flags);
++        if setfd < 0 {
++            return Err(map_errno((-setfd) as i32));
++        }
++        Ok(duped)
++    })
+ }
+ 
+ pub(crate) fn sys_close(fd: c_int) -> c_int {
+     api::sys_close(fd)
+ }
++
++pub(crate) fn sys_fcntl(fd: c_int, cmd: c_int, arg: usize) -> c_int {
++    api::sys_fcntl(fd, cmd, arg)
++}
+diff --git a/src/syscall_imp/fs/io.rs b/src/syscall_imp/fs/io.rs
+index e0c13db..a53d76d 100644
+--- a/src/syscall_imp/fs/io.rs
++++ b/src/syscall_imp/fs/io.rs
+@@ -1,19 +1,268 @@
+-use core::ffi::{c_char, c_void};
++use core::{ffi::{c_char, c_void}, mem::zeroed};
+ 
+ use arceos_posix_api::{self as api, ctypes::mode_t};
++use axerrno::LinuxError;
++use axtask::current;
++use crate::syscall_body;
+ 
+ pub(crate) fn sys_read(fd: i32, buf: *mut c_void, count: usize) -> isize {
+     api::sys_read(fd, buf, count)
+ }
+ 
+ pub(crate) fn sys_write(fd: i32, buf: *const c_void, count: usize) -> isize {
+-    api::sys_write(fd, buf, count)
++    let ret = api::sys_write(fd, buf, count);
++    if ret == -(LinuxError::EPIPE.code() as isize) {
++        crate::signal::send_current_signal(13);
++    }
++    ret
+ }
+ 
+ pub(crate) fn sys_writev(fd: i32, iov: *const api::ctypes::iovec, iocnt: i32) -> isize {
+-    unsafe { api::sys_writev(fd, iov, iocnt) }
++    let ret = unsafe { api::sys_writev(fd, iov, iocnt) };
++    if ret == -(LinuxError::EPIPE.code() as isize) {
++        crate::signal::send_current_signal(13);
++    }
++    ret
+ }
+ 
+ pub(crate) fn sys_openat(dirfd: i32, path: *const c_char, flags: i32, modes: mode_t) -> isize {
+     api::sys_openat(dirfd, path, flags, modes) as isize
+ }
++
++pub(crate) fn sys_lseek(fd: i32, offset: api::ctypes::off_t, whence: i32) -> isize {
++    api::sys_lseek(fd, offset, whence) as isize
++}
++
++pub(crate) fn sys_sendfile(
++    out_fd: i32,
++    in_fd: i32,
++    offset: *mut api::ctypes::off_t,
++    count: usize,
++) -> isize {
++    syscall_body!(sys_sendfile, {
++        const SEEK_SET: i32 = 0;
++        const SEEK_CUR: i32 = 1;
++        let mut saved_offset = 0;
++        let mut working_offset = 0;
++        let use_explicit_offset = !offset.is_null();
++        if use_explicit_offset {
++            saved_offset = api::sys_lseek(in_fd, 0, SEEK_CUR);
++            if saved_offset < 0 {
++                return Err(
++                    LinuxError::try_from((-saved_offset) as i32).unwrap_or(LinuxError::EINVAL)
++                );
++            }
++            working_offset = unsafe { *offset };
++            let seek_ret = api::sys_lseek(in_fd, working_offset, SEEK_SET);
++            if seek_ret < 0 {
++                return Err(
++                    LinuxError::try_from((-seek_ret) as i32).unwrap_or(LinuxError::EINVAL)
++                );
++            }
++        }
++
++        let mut buf = [0u8; 4096];
++        let mut copied = 0usize;
++        let mut remaining = count;
++        while remaining > 0 {
++            let chunk = remaining.min(buf.len());
++            let read_ret = api::sys_read(in_fd, buf.as_mut_ptr() as *mut _, chunk);
++            if read_ret < 0 {
++                if use_explicit_offset {
++                    let _ = api::sys_lseek(in_fd, saved_offset, SEEK_SET);
++                }
++                return Err(
++                    LinuxError::try_from((-read_ret) as i32).unwrap_or(LinuxError::EIO)
++                );
++            }
++            if read_ret == 0 {
++                break;
++            }
++            let write_ret = api::sys_write(out_fd, buf.as_ptr() as *const _, read_ret as usize);
++            if write_ret < 0 {
++                if use_explicit_offset {
++                    let _ = api::sys_lseek(in_fd, saved_offset, SEEK_SET);
++                }
++                return Err(
++                    LinuxError::try_from((-write_ret) as i32).unwrap_or(LinuxError::EIO)
++                );
++            }
++            let written = write_ret as usize;
++            copied += written;
++            remaining -= written;
++            if written < read_ret as usize {
++                break;
++            }
++        }
++
++        if use_explicit_offset {
++            let new_offset = working_offset + copied as api::ctypes::off_t;
++            unsafe {
++                *offset = new_offset;
++            }
++            let _ = api::sys_lseek(in_fd, saved_offset, SEEK_SET);
++        }
++        Ok(copied)
++    })
++}
++
++#[repr(C)]
++#[derive(Clone, Copy)]
++pub(crate) struct PollFd {
++    fd: i32,
++    events: i16,
++    revents: i16,
++}
++
++const FD_SETSIZE: usize = 1024;
++const BITS_PER_ULONG: usize = core::mem::size_of::<core::ffi::c_ulong>() * 8;
++const POLLIN: i16 = 0x001;
++const POLLPRI: i16 = 0x002;
++const POLLOUT: i16 = 0x004;
++const POLLNVAL: i16 = 0x020;
++
++fn fd_set_insert(set: &mut api::ctypes::fd_set, fd: usize) {
++    set.fds_bits[fd / BITS_PER_ULONG] |= 1 << (fd % BITS_PER_ULONG);
++}
++
++fn fd_set_contains(set: &api::ctypes::fd_set, fd: usize) -> bool {
++    set.fds_bits[fd / BITS_PER_ULONG] & (1 << (fd % BITS_PER_ULONG)) != 0
++}
++
++pub(crate) fn sys_ppoll(
++    fds: *mut PollFd,
++    nfds: usize,
++    timeout: *const api::ctypes::timespec,
++    _sigmask: *const c_void,
++    _sigsetsize: usize,
++) -> isize {
++    syscall_body!(sys_ppoll, {
++        if nfds > FD_SETSIZE {
++            return Err(LinuxError::EINVAL);
++        }
++        if nfds > 0 && fds.is_null() {
++            return Err(LinuxError::EFAULT);
++        }
++
++        let mut readfds = unsafe { zeroed::<api::ctypes::fd_set>() };
++        let mut writefds = unsafe { zeroed::<api::ctypes::fd_set>() };
++        let mut exceptfds = unsafe { zeroed::<api::ctypes::fd_set>() };
++        let mut ready = 0usize;
++        let mut max_fd = 0usize;
++
++        for index in 0..nfds {
++            let pollfd = unsafe { &mut *fds.add(index) };
++            pollfd.revents = 0;
++            if pollfd.fd < 0 {
++                continue;
++            }
++            let fd = pollfd.fd as usize;
++            if fd >= FD_SETSIZE {
++                pollfd.revents = POLLNVAL;
++                ready += 1;
++                continue;
++            }
++            if pollfd.events & POLLIN != 0 {
++                fd_set_insert(&mut readfds, fd);
++            }
++            if pollfd.events & POLLOUT != 0 {
++                fd_set_insert(&mut writefds, fd);
++            }
++            if pollfd.events & POLLPRI != 0 {
++                fd_set_insert(&mut exceptfds, fd);
++            }
++            max_fd = max_fd.max(fd + 1);
++        }
++
++        if ready == 0 {
++            let mut timeout_storage = api::ctypes::timeval {
++                tv_sec: 0,
++                tv_usec: 0,
++            };
++            let timeout_ptr = if timeout.is_null() {
++                core::ptr::null_mut()
++            } else {
++                let timeout = unsafe { *timeout };
++                if timeout.tv_nsec < 0 || timeout.tv_nsec >= 1_000_000_000 {
++                    return Err(LinuxError::EINVAL);
++                }
++                timeout_storage.tv_sec = timeout.tv_sec;
++                timeout_storage.tv_usec = timeout.tv_nsec / 1_000;
++                &mut timeout_storage as *mut _
++            };
++
++            let select_ret = unsafe {
++                api::sys_select(
++                    max_fd as i32,
++                    &mut readfds,
++                    &mut writefds,
++                    &mut exceptfds,
++                    timeout_ptr,
++                )
++            };
++            if select_ret < 0 {
++                return Err(
++                    LinuxError::try_from(-select_ret).unwrap_or(LinuxError::EIO)
++                );
++            }
++        }
++
++        for index in 0..nfds {
++            let pollfd = unsafe { &mut *fds.add(index) };
++            if pollfd.fd < 0 || pollfd.revents != 0 {
++                continue;
++            }
++            let fd = pollfd.fd as usize;
++            if fd_set_contains(&readfds, fd) {
++                pollfd.revents |= POLLIN;
++            }
++            if fd_set_contains(&writefds, fd) {
++                pollfd.revents |= POLLOUT;
++            }
++            if fd_set_contains(&exceptfds, fd) {
++                pollfd.revents |= POLLPRI;
++            }
++            if pollfd.revents != 0 {
++                ready += 1;
++            }
++        }
++
++        Ok(ready)
++    })
++}
++
++pub(crate) fn sys_readlinkat(
++    _dirfd: i32,
++    path: *const c_char,
++    buf: *mut c_char,
++    bufsiz: usize,
++) -> isize {
++    syscall_body!(sys_readlinkat, {
++        if buf.is_null() {
++            return Err(LinuxError::EFAULT);
++        }
++        let path_str = api::char_ptr_to_str(path)?;
++        let curr = current();
++        let target = match path_str {
++            "/proc/self/exe" => curr.name(),
++            _ => return Err(LinuxError::ENOENT),
++        };
++        let bytes = target.as_bytes();
++        let len = bytes.len().min(bufsiz);
++        unsafe {
++            core::ptr::copy_nonoverlapping(bytes.as_ptr(), buf as *mut u8, len);
++        }
++        Ok(len)
++    })
++}
++
++pub(crate) fn sys_faccessat(dirfd: i32, path: *const c_char, _mode: i32, _flags: i32) -> isize {
++    syscall_body!(sys_faccessat, {
++        let fd = api::sys_openat(dirfd, path, api::ctypes::O_RDONLY as i32, 0);
++        if fd < 0 {
++            return Err(LinuxError::try_from((-fd) as i32).unwrap_or(LinuxError::ENOENT));
++        }
++        let _ = api::sys_close(fd);
++        Ok(0)
++    })
++}
+diff --git a/src/syscall_imp/fs/pipe.rs b/src/syscall_imp/fs/pipe.rs
+index dd0ae9a..369134f 100644
+--- a/src/syscall_imp/fs/pipe.rs
++++ b/src/syscall_imp/fs/pipe.rs
+@@ -2,7 +2,7 @@ use core::ffi::c_int;
+ 
+ use arceos_posix_api as api;
+ 
+-pub(crate) fn sys_pipe2(fds: *mut i32) -> c_int {
++pub(crate) fn sys_pipe2(fds: *mut i32, flags: i32) -> c_int {
+     let fds_slice: &mut [c_int] = unsafe { core::slice::from_raw_parts_mut(fds, 2) };
+-    api::sys_pipe(fds_slice)
++    api::sys_pipe2(fds_slice, flags)
+ }
+diff --git a/src/syscall_imp/fs/stat.rs b/src/syscall_imp/fs/stat.rs
+index 6a72531..1e82dfc 100644
+--- a/src/syscall_imp/fs/stat.rs
++++ b/src/syscall_imp/fs/stat.rs
+@@ -1,5 +1,6 @@
+ use core::ffi::c_void;
+ 
++use arceos_posix_api as api;
+ use axerrno::LinuxError;
+ 
+ use crate::syscall_body;
+@@ -218,3 +219,40 @@ pub(crate) fn sys_statx(
+         }
+     })
+ }
++
++pub(crate) fn sys_newfstatat(
++    dirfd: i32,
++    pathname: *const u8,
++    statbuf: *mut api::ctypes::stat,
++    flags: i32,
++) -> i32 {
++    syscall_body!(sys_newfstatat, {
++        if statbuf.is_null() {
++            return Err(LinuxError::EFAULT);
++        }
++
++        const AT_EMPTY_PATH: i32 = 0x1000;
++        let path = api::char_ptr_to_str(pathname as *const _)?;
++        if path.is_empty() {
++            if flags & AT_EMPTY_PATH == 0 {
++                return Err(LinuxError::EINVAL);
++            }
++            let res = unsafe { api::sys_fstat(dirfd, statbuf) };
++            if res < 0 {
++                return Err(LinuxError::try_from(-res).unwrap_or(LinuxError::EINVAL));
++            }
++            return Ok(0);
++        }
++
++        let fd = api::sys_openat(dirfd, pathname as *const _, api::ctypes::O_RDONLY as i32, 0);
++        if fd < 0 {
++            return Err(LinuxError::try_from(-fd).unwrap_or(LinuxError::ENOENT));
++        }
++        let res = unsafe { api::sys_fstat(fd, statbuf) };
++        let _ = api::sys_close(fd);
++        if res < 0 {
++            return Err(LinuxError::try_from(-res).unwrap_or(LinuxError::EINVAL));
++        }
++        Ok(0)
++    })
++}
+diff --git a/src/syscall_imp/mm/brk.rs b/src/syscall_imp/mm/brk.rs
+index 4a71dd6..a7b9a74 100644
+--- a/src/syscall_imp/mm/brk.rs
++++ b/src/syscall_imp/mm/brk.rs
+@@ -1,4 +1,6 @@
++use axhal::paging::MappingFlags;
+ use axtask::{TaskExtRef, current};
++use memory_addr::{MemoryAddr, PAGE_SIZE_4K, VirtAddr};
+ 
+ use crate::syscall_body;
+ 
+@@ -10,6 +12,23 @@ pub fn sys_brk(addr: usize) -> isize {
+         let mut return_val: isize = current_task.task_ext().get_heap_top() as isize;
+         let heap_bottom = current_task.task_ext().get_heap_bottom() as usize;
+         if addr != 0 && addr >= heap_bottom && addr <= heap_bottom + MAX_HEAP_SIZE {
++            let old_top = current_task.task_ext().get_heap_top() as usize;
++            if addr > old_top {
++                let mut aspace = current_task.task_ext().aspace.lock();
++                let mut map_vaddr = VirtAddr::from_usize(old_top).align_down_4k();
++                let map_end = VirtAddr::from_usize(addr).align_up_4k();
++                while map_vaddr < map_end {
++                    if aspace.page_table().query(map_vaddr).is_err() {
++                        aspace.map_alloc(
++                            map_vaddr,
++                            PAGE_SIZE_4K,
++                            MappingFlags::READ | MappingFlags::WRITE | MappingFlags::USER,
++                            true,
++                        )?;
++                    }
++                    map_vaddr += PAGE_SIZE_4K;
++                }
++            }
+             current_task.task_ext().set_heap_top(addr as u64);
+             return_val = addr as isize;
+         }
+diff --git a/src/syscall_imp/mm/mmap.rs b/src/syscall_imp/mm/mmap.rs
+index 513c0f8..f1135ef 100644
+--- a/src/syscall_imp/mm/mmap.rs
++++ b/src/syscall_imp/mm/mmap.rs
+@@ -133,6 +133,7 @@ pub(crate) fn sys_mmap(
+             file.read_at(offset as u64, &mut buf)?;
+             aspace.write(start_addr, &buf)?;
+         }
++        axhal::arch::flush_tlb(None);
+         Ok(start_addr.as_usize())
+     })
+ }
+@@ -149,3 +150,27 @@ pub(crate) fn sys_munmap(addr: *mut usize, mut length: usize) -> i32 {
+         Ok(0)
+     })
+ }
++
++pub(crate) fn sys_mprotect(addr: *mut usize, length: usize, prot: i32) -> i32 {
++    syscall_body!(sys_mprotect, {
++        if length == 0 {
++            return Ok(0);
++        }
++
++        let start = addr as usize;
++        let end = start.checked_add(length).ok_or(LinuxError::EINVAL)?;
++        let aligned_start = memory_addr::align_down_4k(start);
++        let aligned_end = memory_addr::align_up_4k(end);
++
++        let curr = current();
++        let curr_ext = curr.task_ext();
++        let mut aspace = curr_ext.aspace.lock();
++        aspace.protect(
++            VirtAddr::from(aligned_start),
++            aligned_end - aligned_start,
++            MmapProt::from_bits_truncate(prot).into(),
++        )?;
++        axhal::arch::flush_tlb(None);
++        Ok(0)
++    })
++}
+diff --git a/src/syscall_imp/mod.rs b/src/syscall_imp/mod.rs
+index 4973eed..3d5a41b 100644
+--- a/src/syscall_imp/mod.rs
++++ b/src/syscall_imp/mod.rs
+@@ -40,81 +40,148 @@ macro_rules! syscall_body {
+ 
+ #[register_trap_handler(SYSCALL)]
+ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
+-    info!("Syscall {:?}", Sysno::from(syscall_num as u32));
+     time_stat_from_user_to_kernel();
+-    let ans = match Sysno::from(syscall_num as u32) {
+-        Sysno::read => sys_read(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
+-        Sysno::write => sys_write(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
+-        Sysno::mmap => sys_mmap(
++    let ans = if syscall_num == 39 {
++        sys_umount(tf.arg0() as _, tf.arg1() as _) as _
++    } else if syscall_num == 40 {
++        sys_mount(
+             tf.arg0() as _,
+             tf.arg1() as _,
+             tf.arg2() as _,
+             tf.arg3() as _,
+             tf.arg4() as _,
+-            tf.arg5() as _,
+-        ) as _,
+-        Sysno::ioctl => sys_ioctl(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _) as _,
+-        Sysno::writev => sys_writev(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
+-        Sysno::sched_yield => sys_sched_yield() as isize,
+-        Sysno::nanosleep => sys_nanosleep(tf.arg0() as _, tf.arg1() as _) as _,
+-        Sysno::getpid => sys_getpid() as isize,
+-        Sysno::getppid => sys_getppid() as isize,
+-        Sysno::exit => sys_exit(tf.arg0() as _),
+-        Sysno::gettimeofday => sys_get_time_of_day(tf.arg0() as _) as _,
+-        Sysno::getcwd => sys_getcwd(tf.arg0() as _, tf.arg1() as _) as _,
+-        Sysno::dup => sys_dup(tf.arg0() as _) as _,
+-        Sysno::dup3 => sys_dup3(tf.arg0() as _, tf.arg1() as _) as _,
+-        Sysno::clone => sys_clone(
+-            tf.arg0() as _,
+-            tf.arg1() as _,
+-            tf.arg2() as _,
+-            tf.arg3() as _,
+-            tf.arg4() as _,
+-        ) as _,
+-        Sysno::wait4 => sys_wait4(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _) as _,
+-        Sysno::pipe2 => sys_pipe2(tf.arg0() as _) as _,
+-        Sysno::close => sys_close(tf.arg0() as _) as _,
+-        Sysno::chdir => sys_chdir(tf.arg0() as _) as _,
+-        Sysno::mkdirat => sys_mkdirat(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _) as _,
+-        Sysno::execve => sys_execve(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _) as _,
+-        Sysno::openat => sys_openat(
+-            tf.arg0() as _,
+-            tf.arg1() as _,
+-            tf.arg2() as _,
+-            tf.arg3() as _,
+-        ) as _,
+-        Sysno::getdents64 => sys_getdents64(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
+-        Sysno::linkat => sys_linkat(
+-            tf.arg0() as _,
+-            tf.arg1() as _,
+-            tf.arg2() as _,
+-            tf.arg3() as _,
+-            tf.arg4() as _,
+-        ) as _,
+-        Sysno::unlinkat => sys_unlinkat(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
+-        Sysno::uname => sys_uname(tf.arg0() as _) as _,
+-        Sysno::fstat => sys_fstat(tf.arg0() as _, tf.arg1() as _) as _,
+-        Sysno::statx => sys_statx(
+-            tf.arg0() as _,
+-            tf.arg1() as _,
+-            tf.arg2() as _,
+-            tf.arg3() as _,
+-            tf.arg4() as _,
+-        ) as _,
+-        Sysno::munmap => sys_munmap(tf.arg0() as _, tf.arg1() as _) as _,
+-        Sysno::times => sys_times(tf.arg0() as _) as _,
+-        Sysno::brk => sys_brk(tf.arg0() as _) as _,
+-        #[cfg(target_arch = "x86_64")]
+-        Sysno::arch_prctl => sys_arch_prctl(tf.arg0() as _, tf.arg1() as _),
+-        Sysno::set_tid_address => sys_set_tid_address(tf.arg0() as _),
+-        Sysno::clock_gettime => sys_clock_gettime(tf.arg0() as _, tf.arg1() as _) as _,
+-        Sysno::exit_group => sys_exit_group(tf.arg0() as _),
+-        _ => {
+-            warn!("Unimplemented syscall: {}", syscall_num);
+-            axtask::exit(LinuxError::ENOSYS as _)
++        ) as _
++    } else {
++        match Sysno::from(syscall_num as u32) {
++            Sysno::read => sys_read(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
++            Sysno::write => sys_write(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
++            Sysno::sendfile => sys_sendfile(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++            ),
++            Sysno::readlinkat => sys_readlinkat(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++            ),
++            Sysno::faccessat => sys_faccessat(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++            ),
++            Sysno::mmap => sys_mmap(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++                tf.arg4() as _,
++                tf.arg5() as _,
++            ) as _,
++            Sysno::ioctl => sys_ioctl(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _) as _,
++            Sysno::fcntl => sys_fcntl(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _) as _,
++            Sysno::lseek => sys_lseek(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
++            Sysno::writev => sys_writev(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
++            Sysno::rt_sigaction => sys_rt_sigaction(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++            ),
++            Sysno::rt_sigreturn => sys_rt_sigreturn(),
++            Sysno::rt_sigprocmask => sys_rt_sigprocmask(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++            ),
++            Sysno::getitimer => sys_getitimer(tf.arg0() as _, tf.arg1() as _),
++            Sysno::setitimer => sys_setitimer(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
++            Sysno::ppoll => sys_ppoll(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++                tf.arg4() as _,
++            ),
++            Sysno::sched_yield => sys_sched_yield() as isize,
++            Sysno::nanosleep => sys_nanosleep(tf.arg0() as _, tf.arg1() as _) as _,
++            Sysno::getpid => sys_getpid() as isize,
++            Sysno::getppid => sys_getppid() as isize,
++            Sysno::getuid => sys_getuid() as isize,
++            Sysno::geteuid => sys_geteuid() as isize,
++            Sysno::getgid => sys_getgid() as isize,
++            Sysno::getegid => sys_getegid() as isize,
++            Sysno::gettid => sys_gettid() as isize,
++            Sysno::exit => sys_exit(tf.arg0() as _),
++            Sysno::gettimeofday => sys_get_time_of_day(tf.arg0() as _) as _,
++            Sysno::getcwd => sys_getcwd(tf.arg0() as _, tf.arg1() as _) as _,
++            Sysno::dup => sys_dup(tf.arg0() as _) as _,
++            Sysno::dup3 => sys_dup3(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _) as _,
++            Sysno::clone => sys_clone(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++                tf.arg4() as _,
++            ) as _,
++            Sysno::wait4 => sys_wait4(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _) as _,
++            Sysno::pipe2 => sys_pipe2(tf.arg0() as _, tf.arg1() as _) as _,
++            Sysno::close => sys_close(tf.arg0() as _) as _,
++            Sysno::chdir => sys_chdir(tf.arg0() as _) as _,
++            Sysno::mkdirat => sys_mkdirat(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _) as _,
++            Sysno::execve => sys_execve(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _) as _,
++            Sysno::openat => sys_openat(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++            ) as _,
++            Sysno::getdents64 => sys_getdents64(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
++            Sysno::linkat => sys_linkat(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++                tf.arg4() as _,
++            ) as _,
++            Sysno::unlinkat => sys_unlinkat(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
++            Sysno::uname => sys_uname(tf.arg0() as _) as _,
++            Sysno::fstat => sys_fstat(tf.arg0() as _, tf.arg1() as _) as _,
++            Sysno::statx => sys_statx(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++                tf.arg4() as _,
++            ) as _,
++            Sysno::fstatat => sys_newfstatat(
++                tf.arg0() as _,
++                tf.arg1() as _,
++                tf.arg2() as _,
++                tf.arg3() as _,
++            ) as _,
++            Sysno::mprotect => sys_mprotect(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _)
++                as _,
++            Sysno::munmap => sys_munmap(tf.arg0() as _, tf.arg1() as _) as _,
++            Sysno::times => sys_times(tf.arg0() as _) as _,
++            Sysno::brk => sys_brk(tf.arg0() as _) as _,
++            Sysno::umask => sys_umask(tf.arg0() as _) as _,
++            #[cfg(target_arch = "x86_64")]
++            Sysno::arch_prctl => sys_arch_prctl(tf.arg0() as _, tf.arg1() as _),
++            Sysno::set_tid_address => sys_set_tid_address(tf.arg0() as _),
++            Sysno::set_robust_list => sys_set_robust_list(tf.arg0() as _, tf.arg1() as _),
++            Sysno::clock_gettime => sys_clock_gettime(tf.arg0() as _, tf.arg1() as _) as _,
++            Sysno::exit_group => sys_exit_group(tf.arg0() as _),
++            _ => {
++                warn!("Unimplemented syscall: {}", syscall_num);
++                -(LinuxError::ENOSYS.code() as isize)
++            }
+         }
+     };
+     time_stat_from_kernel_to_user();
+-    info!("syscall return: {}", ans);
+     ans
+ }
+diff --git a/src/syscall_imp/task/thread.rs b/src/syscall_imp/task/thread.rs
+index 48f884d..9e3f6cf 100644
+--- a/src/syscall_imp/task/thread.rs
++++ b/src/syscall_imp/task/thread.rs
+@@ -1,7 +1,8 @@
+-use core::ffi::{c_char, c_int};
++use alloc::{string::String, vec::Vec};
++use core::ffi::{c_char, c_int, c_void};
+ 
+ use axerrno::LinuxError;
+-use axtask::{TaskExtRef, current, yield_now};
++use axtask::{TaskExtRef, current};
+ use num_enum::TryFromPrimitive;
+ 
+ use crate::{
+@@ -43,6 +44,64 @@ pub(crate) fn sys_getppid() -> i32 {
+     })
+ }
+ 
++pub(crate) fn sys_getuid() -> i32 {
++    syscall_body!(sys_getuid, Ok(0))
++}
++
++pub(crate) fn sys_geteuid() -> i32 {
++    syscall_body!(sys_geteuid, Ok(0))
++}
++
++pub(crate) fn sys_getgid() -> i32 {
++    syscall_body!(sys_getgid, Ok(0))
++}
++
++pub(crate) fn sys_getegid() -> i32 {
++    syscall_body!(sys_getegid, Ok(0))
++}
++
++pub(crate) fn sys_gettid() -> i32 {
++    syscall_body!(sys_gettid, Ok(current().id().as_u64() as c_int))
++}
++
++pub(crate) fn sys_rt_sigaction(
++    signum: i32,
++    act: *const c_void,
++    oldact: *mut c_void,
++    sigsetsize: usize,
++) -> isize {
++    crate::signal::sys_rt_sigaction(signum, act, oldact, sigsetsize)
++}
++
++pub(crate) fn sys_rt_sigprocmask(
++    how: i32,
++    set: *const c_void,
++    oldset: *mut c_void,
++    sigsetsize: usize,
++) -> isize {
++    crate::signal::sys_rt_sigprocmask(how, set, oldset, sigsetsize)
++}
++
++pub(crate) fn sys_rt_sigreturn() -> isize {
++    crate::signal::sys_rt_sigreturn()
++}
++
++pub(crate) fn sys_getitimer(which: i32, curr_value: *mut c_void) -> isize {
++    crate::signal::sys_getitimer(which, curr_value)
++}
++
++pub(crate) fn sys_setitimer(
++    which: i32,
++    new_value: *const c_void,
++    old_value: *mut c_void,
++) -> isize {
++    crate::signal::sys_setitimer(which, new_value, old_value)
++}
++
++pub(crate) fn sys_set_robust_list(_head: usize, _len: usize) -> isize {
++    syscall_body!(sys_set_robust_list, Ok(0))
++}
++
+ pub(crate) fn sys_exit(status: i32) -> ! {
+     let curr = current();
+     let clear_child_tid = curr.task_ext().clear_child_tid() as *mut i32;
+@@ -54,11 +113,12 @@ pub(crate) fn sys_exit(status: i32) -> ! {
+         }
+         // TODO: wake up threads, which are blocked by futex, and waiting for the address pointed by clear_child_tid
+     }
++    arceos_posix_api::close_all_fds();
+     axtask::exit(status);
+ }
+ 
+ pub(crate) fn sys_exit_group(status: i32) -> ! {
+-    warn!("Temporarily replace sys_exit_group with sys_exit");
++    arceos_posix_api::close_all_fds();
+     axtask::exit(status);
+ }
+ 
+@@ -155,7 +215,7 @@ pub(crate) fn sys_wait4(pid: i32, exit_code_ptr: *mut i32, option: u32) -> isize
+                         if option_flag.contains(WaitFlags::WNOHANG) {
+                             return Ok(0);
+                         } else {
+-                            yield_now();
++                            axtask::sleep(core::time::Duration::from_millis(1));
+                         }
+                     }
+                     _ => {
+@@ -168,29 +228,41 @@ pub(crate) fn sys_wait4(pid: i32, exit_code_ptr: *mut i32, option: u32) -> isize
+ }
+ 
+ pub fn sys_execve(path: *const c_char, argv: *const usize, envp: *const usize) -> isize {
+-    syscall_body!(sys_execve, {
+-        let path_str = arceos_posix_api::char_ptr_to_str(path)?;
++    fn read_c_string_array(argv: *const usize) -> Result<Vec<String>, LinuxError> {
++        const MAX_EXEC_ARGS: usize = 256;
+ 
+-        info!("execve: {:?}", path_str);
+-        if path_str.split('/').filter(|s| !s.is_empty()).count() > 1 {
+-            info!("Multi-level directories are not supported");
+-            return Err::<isize, _>(LinuxError::EINVAL);
++        if argv.is_null() {
++            return Ok(Vec::new());
+         }
+ 
+-        let argv_valid = unsafe { argv.is_null() || *argv == 0 };
+-        let envp_valid = unsafe { envp.is_null() || *envp == 0 };
++        let mut args = Vec::new();
++        for index in 0..MAX_EXEC_ARGS {
++            let arg_ptr = unsafe { *argv.add(index) } as *const c_char;
++            if arg_ptr.is_null() {
++                return Ok(args);
++            }
++            args.push(arceos_posix_api::char_ptr_to_str(arg_ptr)?.into());
++        }
++        Err(LinuxError::E2BIG)
++    }
+ 
+-        if !argv_valid {
+-            info!("argv is not supported");
++    syscall_body!(sys_execve, {
++        let path_str = arceos_posix_api::char_ptr_to_str(path)?;
++        let path_owned = String::from(path_str);
++
++        let mut args = read_c_string_array(argv)?;
++        if args.is_empty() {
++            args.push(path_owned.clone());
+         }
++        let envp_valid = unsafe { envp.is_null() || *envp == 0 };
+ 
+         if !envp_valid {
+             info!("envp is not supported");
+         }
+ 
+-        if let Err(e) = crate::task::exec(path_str) {
++        if let Err(e) = crate::task::exec_with_args(&path_owned, args) {
+             error!("Failed to exec: {:?}", e);
+-            return Err(LinuxError::ENOSYS);
++            return Err::<isize, _>(e.into());
+         }
+ 
+         unreachable!("execve should never return");
+diff --git a/src/task.rs b/src/task.rs
+index 1626571..3ce5f6b 100644
+--- a/src/task.rs
++++ b/src/task.rs
+@@ -1,15 +1,16 @@
+-use alloc::{string::ToString, sync::Arc, vec, vec::Vec};
+-use arceos_posix_api::FD_TABLE;
++use alloc::{string::{String, ToString}, sync::Arc, vec, vec::Vec};
++use arceos_posix_api::{FD_FLAGS, FD_TABLE, close_on_exec_fds};
+ use axerrno::{AxError, AxResult};
+ use axfs::{CURRENT_DIR, CURRENT_DIR_PATH};
+ use core::{
+     alloc::Layout,
+     cell::UnsafeCell,
+-    sync::atomic::{AtomicU64, Ordering},
++    sync::atomic::{AtomicBool, AtomicU64, Ordering},
+ };
+ use spin::Once;
+ 
+ use crate::ctypes::{CloneFlags, TimeStat, WaitStatus};
++use crate::signal::SignalState;
+ use axhal::{
+     arch::{TrapFrame, UspaceContext},
+     time::{NANOS_PER_MICROS, NANOS_PER_SEC, monotonic_time_nanos},
+@@ -33,6 +34,8 @@ pub struct TaskExt {
+     ///
+     /// When the thread exits, the kernel clears the word at this address if it is not NULL.
+     clear_child_tid: AtomicU64,
++    /// Whether a vfork-style child has finished the blocking phase.
++    vfork_done: AtomicBool,
+     /// The user space context.
+     pub uctx: UspaceContext,
+     /// The virtual memory address space.
+@@ -41,10 +44,14 @@ pub struct TaskExt {
+     pub ns: AxNamespace,
+     /// The time statistics
+     pub time: UnsafeCell<TimeStat>,
++    /// Signal handling state
++    pub signals: Mutex<SignalState>,
+     /// The user heap bottom
+     pub heap_bottom: AtomicU64,
+     /// The user heap top
+     pub heap_top: AtomicU64,
++    /// The process umask.
++    pub umask: AtomicU64,
+ }
+ 
+ impl TaskExt {
+@@ -60,11 +67,14 @@ impl TaskExt {
+             children: Mutex::new(Vec::new()),
+             uctx,
+             clear_child_tid: AtomicU64::new(0),
++            vfork_done: AtomicBool::new(true),
+             aspace,
+             ns: AxNamespace::new_thread_local(),
+             time: TimeStat::new().into(),
++            signals: Mutex::new(SignalState::new()),
+             heap_bottom: AtomicU64::new(heap_bottom),
+             heap_top: AtomicU64::new(heap_bottom),
++            umask: AtomicU64::new(0o022),
+         }
+     }
+ 
+@@ -76,7 +86,7 @@ impl TaskExt {
+         _tls: usize,
+         _ctid: usize,
+     ) -> AxResult<u64> {
+-        let _clone_flags = CloneFlags::from_bits((flags & !0x3f) as u32).unwrap();
++        let clone_flags = CloneFlags::from_bits((flags & !0x3f) as u32).unwrap();
+ 
+         let mut new_task = TaskInner::new(
+             || {
+@@ -116,10 +126,34 @@ impl TaskExt {
+             Arc::new(Mutex::new(new_aspace)),
+             0,
+         );
++        {
++            let parent_signals = self.signals.lock().clone();
++            *new_task_ext.signals.lock() = SignalState::fork_from_parent(&parent_signals);
++        }
++        new_task_ext
++            .umask
++            .store(self.umask.load(Ordering::Acquire), Ordering::Release);
++        if clone_flags.contains(CloneFlags::CLONE_VFORK) {
++            new_task_ext.vfork_done.store(false, Ordering::Release);
++        }
+         new_task_ext.ns_init_new();
+         new_task.init_task_ext(new_task_ext);
+         let new_task_ref = axtask::spawn_task(new_task);
+         current_task.task_ext().children.lock().push(new_task_ref);
++        if clone_flags.contains(CloneFlags::CLONE_VFORK) {
++            let child = current_task
++                .task_ext()
++                .children
++                .lock()
++                .last()
++                .cloned()
++                .expect("vfork child missing");
++            while !child.task_ext().vfork_done.load(Ordering::Acquire)
++                && child.state() != axtask::TaskState::Exited
++            {
++                axtask::yield_now();
++            }
++        }
+         Ok(return_id)
+     }
+ 
+@@ -137,6 +171,10 @@ impl TaskExt {
+         self.parent_id.load(Ordering::Acquire)
+     }
+ 
++    pub(crate) fn complete_vfork(&self) {
++        self.vfork_done.store(true, Ordering::Release);
++    }
++
+     #[allow(unused)]
+     pub(crate) fn set_parent(&self, parent_id: u64) {
+         self.parent_id.store(parent_id, Ordering::Release);
+@@ -146,6 +184,9 @@ impl TaskExt {
+         FD_TABLE
+             .deref_from(&self.ns)
+             .init_new(FD_TABLE.copy_inner());
++        FD_FLAGS
++            .deref_from(&self.ns)
++            .init_new(FD_FLAGS.copy_inner());
+         CURRENT_DIR
+             .deref_from(&self.ns)
+             .init_new(CURRENT_DIR.copy_inner());
+@@ -189,6 +230,10 @@ impl TaskExt {
+     pub(crate) fn set_heap_top(&self, top: u64) {
+         self.heap_top.store(top, Ordering::Release)
+     }
++
++    pub(crate) fn swap_umask(&self, new_mask: u32) -> u32 {
++        self.umask.swap((new_mask & 0o777) as u64, Ordering::AcqRel) as u32
++    }
+ }
+ 
+ struct AxNamespaceImpl;
+@@ -327,9 +372,13 @@ pub fn wait_pid(pid: i32, exit_code_ptr: *mut i32) -> Result<u64, WaitStatus> {
+ }
+ 
+ pub fn exec(name: &str) -> AxResult<()> {
++    exec_with_args(name, vec![name.to_string()])
++}
++
++pub fn exec_with_args(path: &str, args: Vec<String>) -> AxResult<()> {
+     let current_task = current();
+ 
+-    let program_name = name.to_string();
++    let task_name = args.first().cloned().unwrap_or_else(|| path.to_string());
+ 
+     let mut aspace = current_task.task_ext().aspace.lock();
+     if Arc::strong_count(&current_task.task_ext().aspace) != 1 {
+@@ -340,17 +389,28 @@ pub fn exec(name: &str) -> AxResult<()> {
+     aspace.unmap_user_areas()?;
+     axhal::arch::flush_tlb(None);
+ 
+-    let args = vec![program_name];
+-
+-    let (entry_point, user_stack_base) = crate::mm::load_user_app(&mut (args.into()), &mut aspace)
+-        .map_err(|_| {
+-            error!("Failed to load app {}", name);
++    let argc = args.len();
++    let (entry_point, user_stack_base, heap_bottom) =
++        crate::mm::load_user_app(path, &mut (args.into()), &mut aspace).map_err(|_| {
++            error!("Failed to load app {}", path);
+             AxError::NotFound
+         })?;
+-    current_task.set_name(name);
++    current_task.set_name(&task_name);
++    close_on_exec_fds();
+ 
+     let task_ext = unsafe { &mut *(current_task.task_ext_ptr() as *mut TaskExt) };
++    task_ext.signals.lock().reset_for_exec();
+     task_ext.uctx = UspaceContext::new(entry_point.as_usize(), user_stack_base, 0);
++    let argv_ptr = user_stack_base.as_usize() + core::mem::size_of::<usize>();
++    task_ext.uctx.set_retval(argc);
++    task_ext.uctx.set_arg1(argv_ptr);
++    task_ext
++        .uctx
++        .set_arg2(user_stack_base.as_usize() + (argc + 2) * core::mem::size_of::<usize>());
++    task_ext.set_heap_bottom(heap_bottom.as_usize() as u64);
++    task_ext.set_heap_top(heap_bottom.as_usize() as u64);
++    task_ext.complete_vfork();
++    drop(aspace);
+ 
+     unsafe {
+         task_ext.uctx.enter_uspace(
+diff --git a/vendor/kernel-elf-parser/.cargo-checksum.json b/vendor/kernel-elf-parser/.cargo-checksum.json
+index 0869f2a..d131bdb 100644
+--- a/vendor/kernel-elf-parser/.cargo-checksum.json
++++ b/vendor/kernel-elf-parser/.cargo-checksum.json
+@@ -1 +1 @@
+-{"files":{"Cargo.lock":"426bff1010e1b0ae74d59e5df36b4e5687b767b2efde4559109987c25b2bca94","Cargo.toml":"c9570fe509721981482d95e6a238a96ad785435dd0ef5d16d1e9f917205bd4d9","README.md":"822a964bf6191e914e7af566afc1084412982befc9053d8dc2ab9d980efedc5d","src/auxv.rs":"ed31f1c23ccd49f55345febb25983871f4ebf3838bb8743dc703c60c132a616e","src/info.rs":"d17177495eb496b0a8875b8cb488f4bb8d62bb5966afacf92f81c7b44f0d5ee2","src/lib.rs":"9da87f17f68dab9937c300519103faef79e0cb64378f0ee9df190709b2eb10a8","src/user_stack.rs":"30f6ca645846f55ed4d02b4243c6247c576691542bfacf38512d6ed4fb18278d","tests/elf_static":"6c379ab798320ae6d86c123714536d0b76ce6d06729ad13e07df4cda4c63f970","tests/ld-linux-x86-64.so.2":"8c7e2990d2847ca210d6f716d4b9aa62997c2fd2acfcda587c1ec398ed364618","tests/test_dynamic.rs":"86857caddb0905967c4274619bfd6190704df7431fac4f6f48a80d4339501ffd","tests/test_static.rs":"12966abdec27e11e24083d433c578f21f1065b82c96a15cbb766ac98d9d6c53b"},"package":"00660cf6745731b6cb8cb945c25cd02cb31b0ec23fad11b087b2a3d0439c1582"}
+\ No newline at end of file
++{"files":{"Cargo.lock":"426bff1010e1b0ae74d59e5df36b4e5687b767b2efde4559109987c25b2bca94","Cargo.toml":"c9570fe509721981482d95e6a238a96ad785435dd0ef5d16d1e9f917205bd4d9","README.md":"822a964bf6191e914e7af566afc1084412982befc9053d8dc2ab9d980efedc5d","src/auxv.rs":"ed31f1c23ccd49f55345febb25983871f4ebf3838bb8743dc703c60c132a616e","src/info.rs":"043f73fc3998b2cb567fa2294a1b365f3e3ebfe08c5d75c582a507d010782f1d","src/lib.rs":"9da87f17f68dab9937c300519103faef79e0cb64378f0ee9df190709b2eb10a8","src/user_stack.rs":"30f6ca645846f55ed4d02b4243c6247c576691542bfacf38512d6ed4fb18278d","tests/elf_static":"6c379ab798320ae6d86c123714536d0b76ce6d06729ad13e07df4cda4c63f970","tests/ld-linux-x86-64.so.2":"8c7e2990d2847ca210d6f716d4b9aa62997c2fd2acfcda587c1ec398ed364618","tests/test_dynamic.rs":"86857caddb0905967c4274619bfd6190704df7431fac4f6f48a80d4339501ffd","tests/test_static.rs":"12966abdec27e11e24083d433c578f21f1065b82c96a15cbb766ac98d9d6c53b"},"package":"00660cf6745731b6cb8cb945c25cd02cb31b0ec23fad11b087b2a3d0439c1582"}
+diff --git a/vendor/kernel-elf-parser/src/info.rs b/vendor/kernel-elf-parser/src/info.rs
+index 5a367c9..7e83669 100644
+--- a/vendor/kernel-elf-parser/src/info.rs
++++ b/vendor/kernel-elf-parser/src/info.rs
+@@ -115,7 +115,24 @@ impl<'a> ELFParser<'a> {
+ 
+     /// The offset of the program header table in the ELF file.
+     pub fn phdr(&self) -> usize {
+-        self.elf.header.pt2.ph_offset() as usize + self.base
++        if let Some(phdr) = self
++            .elf
++            .program_iter()
++            .find(|ph| ph.get_type() == Ok(xmas_elf::program::Type::Phdr))
++        {
++            return phdr.virtual_addr() as usize + self.base;
++        }
++
++        let phoff = self.elf.header.pt2.ph_offset() as usize;
++        if let Some(load) = self.elf.program_iter().find(|ph| {
++            ph.get_type() == Ok(xmas_elf::program::Type::Load)
++                && ph.offset() as usize <= phoff
++                && phoff < ph.offset() as usize + ph.file_size() as usize
++        }) {
++            return self.base + load.virtual_addr() as usize + phoff - load.offset() as usize;
++        }
++
++        phoff + self.base
+     }
+ 
+     /// The base address of the ELF file loaded into the memory.
