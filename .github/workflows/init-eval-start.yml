@@ -124,6 +124,7 @@ jobs:
           set -euo pipefail
           mkdir -p dev/full-suite/logs
           rm -f dev/full-suite/logs/ci-eval-start.out dev/full-suite/logs/official-rv.raw.out
+          rm -rf dev/full-suite/images
           run_start_epoch="$(date +%s)"
           cores="$(nproc --all)"
           ltp_shards="$(( (cores * 3 + 3) / 4 ))"
@@ -139,16 +140,24 @@ jobs:
           set +e
           bash -lc "$cmd_basic" 2>&1 | tee dev/full-suite/logs/ci-eval-start.out
           basic_rc=${PIPESTATUS[0]}
-          bash -lc "$cmd_ltp" 2>&1 | tee -a dev/full-suite/logs/ci-eval-start.out
-          ltp_rc=${PIPESTATUS[0]}
           set -e
           echo "[ci] basic exit code: $basic_rc"
-          echo "[ci] ltp exit code: $ltp_rc"
 
           if [[ "$basic_rc" -ne 0 ]]; then
             echo "::error::basic runner failed with exit code: $basic_rc"
             exit "$basic_rc"
           fi
+          if grep -Eq '\[fail\] .*missing group markers|\[fail\] .*incomplete group markers' dev/full-suite/logs/ci-eval-start.out; then
+            echo "::error::basic runner output contains incomplete/missing group markers"
+            exit 1
+          fi
+
+          rm -rf dev/full-suite/images
+          set +e
+          bash -lc "$cmd_ltp" 2>&1 | tee -a dev/full-suite/logs/ci-eval-start.out
+          ltp_rc=${PIPESTATUS[0]}
+          set -e
+          echo "[ci] ltp exit code: $ltp_rc"
           if [[ "$ltp_rc" -ne 0 ]]; then
             echo "::error::ltp runner failed with exit code: $ltp_rc"
             exit "$ltp_rc"

@@ -142,6 +142,7 @@ FULL_RUN_FAILURE_LIMIT = 4
 TAIL_LINES = 40
 LIVE_LINE_PREFIX = "[live] "
 LIVE_POLL_INTERVAL = 0.2
+NON_TTY_LTP_PROGRESS_INTERVAL = 30.0
 LIVE_LINE_ENABLED = sys.stdout.isatty() and os.environ.get("TERM", "") != "dumb"
 LIVE_OUTPUT_ENABLED = LIVE_LINE_ENABLED
 ACTIVE_LIVE_STATUS_RENDERER_OWNER: object | None = None
@@ -1202,6 +1203,7 @@ class LtpShardRuntimeProgressReporter:
             index: 0.0 for index in range(total_shards)
         }
         self.rendered_line_count = 0
+        self.next_non_live_emit_at = self.started_at
         set_live_status_renderer(
             self,
             lambda: self.poll(time.monotonic()),
@@ -1320,6 +1322,13 @@ class LtpShardRuntimeProgressReporter:
     def _render(self, now: float) -> None:
         global LIVE_OUTPUT_ENABLED
         if not LIVE_OUTPUT_ENABLED:
+            if now < self.next_non_live_emit_at:
+                return
+            lines = self._message_lines(now)
+            for line in lines:
+                safe_print(line)
+                append_transcript_line(line)
+            self.next_non_live_emit_at = now + NON_TTY_LTP_PROGRESS_INTERVAL
             return
         try:
             lines = self._message_lines(now)
