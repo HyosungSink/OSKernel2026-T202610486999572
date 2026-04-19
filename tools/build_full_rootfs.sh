@@ -663,6 +663,8 @@ sed -i \
 EOF
 chmod +x "$PATCHED_BUSYBOX_PREP"
 
+require_file "$TESTSUITS_ROOT/libc-test/Makefile"
+
 sed \
     -e 's/LDFLAGS += -Os -s -lpthread -lm -lrt/LDFLAGS += -Os -s -lm -ldl -lrt -lresolv -lpthread/' \
     "$TESTSUITS_ROOT/libc-test/Makefile" > "$PATCHED_LIBCTEST_LA_GLIBC_MAKEFILE"
