@@ -32,6 +32,8 @@ use crate::{
     usercopy::{read_value_from_user, write_value_to_user},
 };
 
+const SIGNAL_WORKER_STACK_SIZE: usize = 16 * 1024;
+
 const MAX_SIGNALS: usize = 64;
 const SIG_BLOCK: i32 = 0;
 const SIG_UNBLOCK: i32 = 1;
@@ -1138,7 +1140,7 @@ fn queue_posix_timer_signal(owner: &AxTaskRef, notify: i32, signum: usize, notif
 
 fn spawn_real_timer_worker(owner: &AxTaskRef, armed_seq: u64) {
     let owner = Arc::downgrade(owner);
-    axtask::spawn(move || loop {
+    axtask::spawn_raw(move || loop {
         let Some(owner) = owner.upgrade() else {
             return;
         };
@@ -1198,12 +1200,12 @@ fn spawn_real_timer_worker(owner: &AxTaskRef, armed_seq: u64) {
         if !periodic {
             return;
         }
-    });
+    }, "signal-real-timer".into(), SIGNAL_WORKER_STACK_SIZE);
 }
 
 fn spawn_cpu_itimer_worker(owner: &AxTaskRef, which: i32, armed_seq: u64) {
     let owner = Arc::downgrade(owner);
-    axtask::spawn(move || loop {
+    axtask::spawn_raw(move || loop {
         let Some(owner) = owner.upgrade() else {
             return;
         };
@@ -1306,12 +1308,12 @@ fn spawn_cpu_itimer_worker(owner: &AxTaskRef, which: i32, armed_seq: u64) {
         if !periodic {
             return;
         }
-    });
+    }, "signal-cpu-itimer".into(), SIGNAL_WORKER_STACK_SIZE);
 }
 
 fn spawn_posix_timer_worker(owner: &AxTaskRef, timer_id: i32, armed_seq: u64) {
     let owner = Arc::downgrade(owner);
-    axtask::spawn(move || loop {
+    axtask::spawn_raw(move || loop {
         let Some(owner) = owner.upgrade() else {
             return;
         };
@@ -1401,7 +1403,7 @@ fn spawn_posix_timer_worker(owner: &AxTaskRef, timer_id: i32, armed_seq: u64) {
         if !periodic {
             return;
         }
-    });
+    }, "signal-posix-timer".into(), SIGNAL_WORKER_STACK_SIZE);
 }
 
 fn thread_group_next_posix_timer_deadline(proc_id: usize) -> Option<u64> {

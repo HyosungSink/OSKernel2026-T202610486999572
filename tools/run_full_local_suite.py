@@ -39,13 +39,6 @@ SHARED_CACHE_ROOT = ROOT / "dev/full-suite"
 QEMU_BIN_DIR = Path("/opt/qemu-bin-10.0.2/bin")
 
 
-def env_flag(name: str, default: bool = False) -> bool:
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on", "y"}
-
-
 def resolve_host_tool(env_name: str, bundled_name: str, fallback_name: str) -> str:
     if value := os.environ.get(env_name):
         return value
@@ -92,10 +85,10 @@ FATAL_IDLE_TIMEOUT = 15.0
 SILENT_IDLE_TIMEOUT = 90.0
 SHARDED_LTP_SILENT_IDLE_TIMEOUT = 60.0
 LTP_HEARTBEAT_INTERVAL_SEC = 30
-LTP_QUEUE_GUEST_HOST = "10.0.2.2"
-LTP_QUEUE_DONE_SENTINEL = "__OSK_LTP_DONE__"
 DEDICATED_LTP_RUNTIME_MUL = 1.0
 DEDICATED_LTP_SHARDS = 10
+LTP_QUEUE_GUEST_HOST = "10.0.2.2"
+LTP_QUEUE_DONE_SENTINEL = "__OSK_LTP_DONE__"
 LTP_SHARD_POINT_WEIGHTS = {
     "fanotify": 6,
     "fork": 6,
@@ -379,11 +372,14 @@ class _LtpWorkStealingRequestHandler(http.server.BaseHTTPRequestHandler):
             return
         case = self.server.queue.claim_next(worker_index)
         body = ((case.runtest_line if case is not None else LTP_QUEUE_DONE_SENTINEL) + "\n").encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     def log_message(self, format: str, *args: object) -> None:
         return
@@ -1191,7 +1187,7 @@ class LtpShardRuntimeProgressReporter:
         self.active_cases: dict[int, str] = {}
         self.worker_states: dict[int, str] = {index: "booting" for index in range(total_shards)}
         self.worker_idle_started_at: dict[int, float | None] = {
-            index: self.started_at for index in range(total_shards)
+            index: None for index in range(total_shards)
         }
         self.worker_idle_total_sec: dict[int, float] = {
             index: 0.0 for index in range(total_shards)
@@ -1220,10 +1216,13 @@ class LtpShardRuntimeProgressReporter:
         summary_parts: list[str] = []
         booting = sum(1 for state in self.worker_states.values() if state == "booting")
         switching = sum(1 for state in self.worker_states.values() if state == "switching")
+        idle = sum(1 for state in self.worker_states.values() if state == "idle")
         if booting > 0:
             summary_parts.append(f"booting {booting}")
         if switching > 0:
             summary_parts.append(f"switching {switching}")
+        if idle > 0:
+            summary_parts.append(f"idle {idle}")
         summary_part = " | ".join(summary_parts) if summary_parts else None
         return summary_part, active_part
 
@@ -1400,7 +1399,7 @@ class LtpShardRuntimeProgressReporter:
         return self._set_idle_state_locked(
             shard_index,
             now,
-            idle=(state in {"booting", "switching"} and not restart_active),
+            idle=(state == "idle" and not restart_active),
         )
 
     def _set_restart_state_locked(
@@ -1539,6 +1538,13 @@ class LtpShardRuntimeProgressReporter:
             self._set_restart_state_locked(shard_index, now, restarting=restarting)
             self._render(now)
 
+    def mark_worker_idle(self, shard_index: int) -> None:
+        with self.lock:
+            now = time.monotonic()
+            self._set_worker_state_locked(shard_index, "idle", now)
+            self._set_restart_state_locked(shard_index, now, restarting=False)
+            self._render(now)
+
     def mark_shard_completed(self, shard_index: int) -> None:
         with self.lock:
             now = time.monotonic()
@@ -1618,9 +1624,6 @@ def run_logged_command(
     suppress_live_log: bool = False,
 ) -> tuple[int | None, bool, str | None]:
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    # Keep default stale-writer isolation, but allow legacy behavior via env switch.
-    if env_flag("OSK_REPLACE_STAGE_LOG_INODE", True):
-        log_path.unlink(missing_ok=True)
     tty_state = capture_tty_state()
     with log_path.open("w", encoding="utf-8", errors="ignore") as log_file:
         proc = subprocess.Popen(
@@ -2528,6 +2531,7 @@ export LTP_RUNTIME_MUL
 
 ltp_queue_url="__OSK_LTP_QUEUE_URL__"
 ltp_worker_id="__OSK_LTP_WORKER_ID__"
+ltp_queue_tmp="/tmp/.ltp_queue_${ltp_worker_id}_$$.txt"
 
 ltp_ts_now() {
   local up rest
@@ -2571,7 +2575,8 @@ ltp_emit_log_file() {
 }
 
 ltp_fetch_next_line() {
-  /busybox wget -q -O - "$ltp_queue_url&worker=$ltp_worker_id"
+  : > "$ltp_queue_tmp"
+  /busybox wget -q -O "$ltp_queue_tmp" "$ltp_queue_url&worker=$ltp_worker_id"
 }
 
 run_ltp_case() {
@@ -2643,17 +2648,179 @@ run_ltp_case() {
 }
 
 while true; do
-  line="$(ltp_fetch_next_line)"
+  ltp_fetch_next_line
   fetch_status=$?
   if [ "$fetch_status" -ne 0 ]; then
     echo "[ltp-queue] fetch failed worker=$ltp_worker_id status=$fetch_status"
     /busybox sleep 1 2>/dev/null || break
     continue
   fi
+  if IFS= read -r line < "$ltp_queue_tmp"; then
+    :
+  else
+    line=""
+  fi
   case "$line" in
     "" )
       echo "[ltp-queue] empty response worker=$ltp_worker_id"
       /busybox sleep 1 2>/dev/null || break
+      continue
+      ;;
+    "__OSK_LTP_DONE__" )
+      break
+      ;;
+    \\#* )
+      continue
+      ;;
+  esac
+
+  set -- $line
+  name=$1
+  shift
+
+  ltp_emit_ts "$name" run
+  echo "RUN LTP CASE $name"
+  run_ltp_case "$name" "$@"
+done
+echo "#### OS COMP TEST GROUP END ltp ####"
+"""
+
+
+LTP_STDIN_TESTCODE_READY_MARKER = "[ltp-stdin] ready"
+
+
+LTP_STDIN_TESTCODE_SCRIPT_TEMPLATE = """#!/bin/bash
+
+echo "#### OS COMP TEST GROUP START ltp ####"
+
+target_dir="__OSK_LTP_TARGET_DIR__"
+ltp_root="__OSK_LTP_ROOT__"
+PATH="__OSK_LTP_SEARCH_PATH__"
+export PATH
+export LTPROOT="$ltp_root"
+export LIBRARY_PATH="__OSK_LTP_LIBRARY_PATH__"
+export LD_LIBRARY_PATH="__OSK_LTP_LIBRARY_PATH__"
+: "${LTP_TIMEOUT_MUL:=__OSK_LTP_TIMEOUT_MUL__}"
+export LTP_TIMEOUT_MUL
+: "${LTP_RUNTIME_MUL:=__OSK_LTP_RUNTIME_MUL__}"
+export LTP_RUNTIME_MUL
+
+ltp_ts_now() {
+  local up rest
+  if IFS=' ' read -r up rest < /proc/uptime 2>/dev/null; then
+    printf '%s' "$up"
+  else
+    printf '0.00'
+  fi
+}
+
+ltp_emit_ts() {
+  local case_name="$1"
+  local phase="$2"
+  echo "[ltp-ts $(ltp_ts_now)] case=$case_name phase=$phase"
+}
+
+ltp_emit_log_file() {
+  local log_file_path="$1"
+  local line prev_line repeat_count=0 has_prev=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ "$has_prev" -eq 1 ] && [ "$line" = "$prev_line" ]; then
+      repeat_count=$((repeat_count + 1))
+      continue
+    fi
+    if [ "$has_prev" -eq 1 ]; then
+      echo "$prev_line"
+      if [ "$repeat_count" -gt 0 ]; then
+        echo "[ltp-repeat] previous line repeated $repeat_count times"
+      fi
+    fi
+    prev_line="$line"
+    repeat_count=0
+    has_prev=1
+  done < "$log_file_path"
+  if [ "$has_prev" -eq 1 ]; then
+    echo "$prev_line"
+    if [ "$repeat_count" -gt 0 ]; then
+      echo "[ltp-repeat] previous line repeated $repeat_count times"
+    fi
+  fi
+}
+
+run_ltp_case() {
+  local case_name="$1"
+  shift
+  local log_file="/tmp/.ltp_${case_name}_$$.log"
+  local case_pid hb_pid ret
+  : > "$log_file"
+
+  kill_case_session() {
+    local sig="$1"
+    kill "-$sig" "-$case_pid" 2>/dev/null || kill "-$sig" "$case_pid" 2>/dev/null || /busybox kill "-$sig" "-$case_pid" 2>/dev/null || /busybox kill "-$sig" "$case_pid" 2>/dev/null
+  }
+
+  (cd "$target_dir" && /busybox setsid "$@") >"$log_file" 2>&1 &
+  case_pid=$!
+  (
+    while kill -0 "$case_pid" 2>/dev/null; do
+      /busybox sleep __OSK_LTP_HEARTBEAT_INTERVAL_SEC__ 2>/dev/null || break
+      kill -0 "$case_pid" 2>/dev/null || break
+      echo "[ltp-heartbeat] $case_name"
+    done
+  ) &
+  hb_pid=$!
+  wait "$case_pid"
+  ret=$?
+  kill "$hb_pid" 2>/dev/null
+  wait "$hb_pid" 2>/dev/null
+  kill_case_session TERM
+  kill_case_session KILL
+  ltp_emit_log_file "$log_file"
+
+  local failed=0 broken=0 skipped=0 in_summary=0 line
+  while IFS= read -r line; do
+    case "$line" in
+      Summary:)
+        in_summary=1
+        ;;
+      failed*)
+        if [ "$in_summary" -eq 1 ]; then
+          set -- $line
+          failed=${2:-0}
+        fi
+        ;;
+      broken*)
+        if [ "$in_summary" -eq 1 ]; then
+          set -- $line
+          broken=${2:-0}
+        fi
+        ;;
+      skipped*)
+        if [ "$in_summary" -eq 1 ]; then
+          set -- $line
+          skipped=${2:-0}
+        fi
+        ;;
+    esac
+  done < "$log_file"
+  ltp_emit_ts "$case_name" done
+
+  if [ "$ret" -eq 0 ] && [ "$failed" -eq 0 ] && [ "$broken" -eq 0 ]; then
+    echo "PASS LTP CASE $case_name : 0"
+    echo "FAIL LTP CASE $case_name : 0"
+  elif [ "$failed" -eq 0 ] && [ "$broken" -eq 0 ] && [ "$skipped" -gt 0 ]; then
+    echo "SKIP LTP CASE $case_name : $ret"
+  else
+    echo "FAIL LTP CASE $case_name : $ret"
+  fi
+}
+
+while true; do
+  echo "__OSK_LTP_STDIN_READY__"
+  if ! IFS= read -r line; then
+    break
+  fi
+  case "$line" in
+    "" )
       continue
       ;;
     "__OSK_LTP_DONE__" )
@@ -3409,52 +3576,6 @@ def claim_next_ltp_case_lease(
     return (case_index + 1, [case_name], LTP_WEIGHT_BATCH_BOOT_SEC + weight)
 
 
-def claim_next_ltp_dynamic_lease(
-    pending_cases: deque[tuple[int, str, int]],
-    next_lease_id: list[int],
-) -> tuple[int, list[str], int] | None:
-    if not pending_cases:
-        return None
-
-    _first_index, _first_case, first_weight = pending_cases[0]
-    if first_weight >= LTP_HEAVY_CASE_WEIGHT_THRESHOLD:
-        target_sec = first_weight
-        max_cases = 1
-    elif first_weight >= LTP_MEDIUM_CASE_WEIGHT_THRESHOLD:
-        target_sec = max(LTP_MEDIUM_CASE_WEIGHT_THRESHOLD, first_weight)
-        max_cases = 1
-    elif first_weight >= LTP_WARM_CASE_WEIGHT_THRESHOLD:
-        target_sec = max(LTP_DYNAMIC_LEASE_WARM_TARGET_SEC, first_weight)
-        max_cases = LTP_DYNAMIC_LEASE_WARM_MAX_CASES
-    else:
-        target_sec = LTP_DYNAMIC_LEASE_REGULAR_TARGET_SEC
-        max_cases = LTP_DYNAMIC_LEASE_REGULAR_MAX_CASES
-
-    lease_weight = 0
-    lease_cases: list[str] = []
-    while pending_cases and len(lease_cases) < max_cases:
-        _case_index, case_name, weight = pending_cases[0]
-        if lease_cases and first_weight < LTP_WARM_CASE_WEIGHT_THRESHOLD and weight >= LTP_WARM_CASE_WEIGHT_THRESHOLD:
-            break
-        if lease_cases and weight >= LTP_MEDIUM_CASE_WEIGHT_THRESHOLD:
-            break
-        projected_weight = lease_weight + weight
-        if lease_cases and lease_weight >= target_sec and projected_weight > target_sec:
-            break
-        pending_cases.popleft()
-        lease_cases.append(case_name)
-        lease_weight += weight
-
-    if not lease_cases:
-        _case_index, case_name, weight = pending_cases.popleft()
-        lease_cases.append(case_name)
-        lease_weight = weight
-
-    lease_id = next_lease_id[0]
-    next_lease_id[0] += 1
-    return (lease_id, lease_cases, LTP_WEIGHT_BATCH_BOOT_SEC + lease_weight)
-
-
 def format_ltp_runtime_mul(value: float) -> str:
     text = f"{value:.3f}".rstrip("0").rstrip(".")
     return text or "1"
@@ -3521,6 +3642,34 @@ def ensure_ltp_script_uses_queue(
         .replace("__OSK_LTP_HEARTBEAT_INTERVAL_SEC__", script_heartbeat_interval_sec)
         .replace("__OSK_LTP_QUEUE_URL__", queue_url)
         .replace("__OSK_LTP_WORKER_ID__", str(worker_index + 1)),
+        encoding="utf-8",
+    )
+    script_path.chmod(0o755)
+
+
+def ensure_ltp_script_uses_stdin_queue(
+    rootfs_dir: Path,
+    *,
+    runtime_mul: float,
+) -> None:
+    script_path = rootfs_dir / "ltp_testcode.sh"
+    script_target_dir = ltp_runtime_target_dir(rootfs_dir)
+    script_ltp_root = ltp_runtime_root_path(rootfs_dir)
+    script_search_path = ltp_runtime_search_path(rootfs_dir)
+    script_library_path = ltp_runtime_library_path(rootfs_dir)
+    script_timeout_mul = "10000" if runtime_mul >= 1.0 else format_ltp_runtime_mul(max(min(runtime_mul, 1.0), 0.1))
+    script_runtime_mul = format_ltp_runtime_mul(runtime_mul)
+    script_heartbeat_interval_sec = str(LTP_HEARTBEAT_INTERVAL_SEC)
+    ensure_private_regular_file(script_path)
+    script_path.write_text(
+        LTP_STDIN_TESTCODE_SCRIPT_TEMPLATE.replace("__OSK_LTP_TARGET_DIR__", script_target_dir)
+        .replace("__OSK_LTP_ROOT__", script_ltp_root)
+        .replace("__OSK_LTP_SEARCH_PATH__", script_search_path)
+        .replace("__OSK_LTP_LIBRARY_PATH__", script_library_path)
+        .replace("__OSK_LTP_TIMEOUT_MUL__", script_timeout_mul)
+        .replace("__OSK_LTP_RUNTIME_MUL__", script_runtime_mul)
+        .replace("__OSK_LTP_HEARTBEAT_INTERVAL_SEC__", script_heartbeat_interval_sec)
+        .replace("__OSK_LTP_STDIN_READY__", LTP_STDIN_TESTCODE_READY_MARKER),
         encoding="utf-8",
     )
     script_path.chmod(0o755)
@@ -3640,10 +3789,7 @@ def prepare_qemu_fw() -> None:
     fw_dir.mkdir(parents=True, exist_ok=True)
     src = Path("/usr/share/qemu/qboot.rom")
     if src.exists():
-        dst = fw_dir / "efi-virtio.rom"
-        if dst.exists():
-            dst.unlink()
-        shutil.copy2(src, dst)
+        shutil.copy2(src, fw_dir / "efi-virtio.rom")
 
 
 def ensure_prerequisites(
@@ -3674,8 +3820,7 @@ def ensure_prerequisites(
                 log_path=stage_logs / f"kernel-build-quick-{index}.log",
                 env={**os.environ, "BUILD_JOBS": str(build_jobs)},
             )
-        if "la" in needed_arches or env_flag("OSK_PREPARE_QEMU_FW_ALWAYS", False):
-            prepare_qemu_fw()
+        prepare_qemu_fw()
     else:
         kernel_lock_path = SHARED_CACHE_ROOT / ".kernel-build.lock"
         with FileLock(kernel_lock_path):
@@ -3732,7 +3877,7 @@ def build_ext4_image(
 ) -> None:
     with tempfile.TemporaryDirectory(prefix="osk-full-stage.") as stage_tmp:
         stage_dir = Path(stage_tmp) / "root"
-        copy_tree_contents(base_rootfs, stage_dir)
+        subprocess.run(["cp", "-al", str(base_rootfs), str(stage_dir)], check=True, cwd=ROOT)
         if command is not None:
             (stage_dir / ".__osk_direct_run__").write_text(command + "\n", encoding="utf-8")
         subprocess.run(["truncate", "-s", size, str(image_path)], check=True, cwd=ROOT)
@@ -3873,16 +4018,7 @@ def qemu_command(arch: str, image_path: Path, image_format: str = "raw") -> list
 
 def copy_tree_contents(src: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
-    if env_flag("OSK_STRICT_HARDLINK_COPY", False):
-        subprocess.run(["cp", "-al", f"{src}/.", str(dst)], check=True, cwd=ROOT)
-        return
-    try:
-        subprocess.run(["cp", "-al", f"{src}/.", str(dst)], check=True, cwd=ROOT)
-    except subprocess.CalledProcessError:
-        # Fallback for cross-filesystem workspaces where hard-link clone is unsupported.
-        shutil.rmtree(dst)
-        dst.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["cp", "-a", f"{src}/.", str(dst)], check=True, cwd=ROOT)
+    subprocess.run(["cp", "-al", f"{src}/.", str(dst)], check=True, cwd=ROOT)
 
 
 def ensure_private_regular_file(path: Path) -> None:
@@ -5038,6 +5174,369 @@ def run_ltp_persistent_worker(
     return merged
 
 
+def run_ltp_host_lease_worker(
+    sample: str,
+    shard_index: int,
+    out_dir: Path,
+    logs_dir: Path,
+    timeout: int,
+    *,
+    command_override: str,
+    ltp_runtime_mul: float,
+    runtime: str,
+    arch: str,
+    variants: dict[tuple[str, str], Path],
+    queue: LtpWorkStealingQueue,
+    progress_reporter: LtpShardRuntimeProgressReporter | None = None,
+    log_label: str | None = None,
+) -> CaseResult:
+    group, sample_runtime, sample_arch = parse_sample(sample)
+    assert group == "ltp"
+    assert sample_runtime == runtime
+    assert sample_arch == arch
+
+    row_by_name: dict[str, DetailRow] = {}
+    combined_chunks: list[str] = []
+    recovered_stalls: list[str] = []
+    worker_case_order: list[str] = []
+    shard_label = official_case_label(group, runtime, arch)
+    shard_log_label = log_label or f"{sample}.worker{shard_index + 1}"
+    lease_index = 0
+
+    while True:
+        lease = queue.claim_next(shard_index)
+        if lease is None:
+            break
+        lease_index += 1
+        worker_case_order.append(lease.case_name)
+        refresh_official_rootfs_wrappers(
+            out_dir,
+            [sample],
+            [lease.case_name],
+            ltp_runtime_mul,
+            None,
+            arch=arch,
+            glibc_rootfs=variants.get((arch, "glibc")),
+            musl_rootfs=variants.get((arch, "musl")),
+        )
+        assert_official_rootfs_ready(out_dir, [sample], [lease.case_name], None)
+        if progress_reporter is not None:
+            progress_reporter.mark_worker_booting(shard_index, restarting=lease_index > 1)
+
+        def on_worker_output(lines: list[str], now: float, *, idx: int = shard_index) -> str | None:
+            if progress_reporter is None:
+                return None
+            return progress_reporter.consume(idx, lines, now)
+
+        result = run_sample_from_rootfs(
+            sample,
+            out_dir,
+            logs_dir,
+            timeout,
+            command_override=command_override,
+            expected_cases_override=[lease.case_name],
+            log_stem=f"{shard_log_label}.lease{lease_index}",
+            silent_idle_timeout=SHARDED_LTP_SILENT_IDLE_TIMEOUT,
+            cleanup_base_image=True,
+            on_output=on_worker_output,
+            on_poll=None if progress_reporter is None else progress_reporter.poll,
+            suppress_live_log=progress_reporter is not None,
+            normalize_ltp_log=False,
+        )
+
+        normalize_ltp_log_file(result.log_path)
+        combined_chunks.append(
+            f"===== LTP WORKER {shard_index + 1} LEASE {lease_index} CASE {lease.case_name} ====="
+        )
+        combined_chunks.append(read_text(result.log_path).rstrip())
+
+        if result.timed_out:
+            queue.mark_worker_stalled(shard_index)
+            row_by_name[lease.case_name] = DetailRow(name=lease.case_name, passed=0, total=1, status="fail")
+            recovered_stalls.append(lease.case_name)
+            if progress_reporter is not None:
+                progress_reporter.mark_stalled_case(shard_index, lease.case_name)
+            console(
+                f"[ltp-shard-restart] {shard_label} shard{shard_index + 1} "
+                f"mark fail {lease.case_name}"
+            )
+            continue
+
+        queue.mark_case_finished(lease.case_name)
+        if result.details is None:
+            validated = validate_case(sample, result.log_path, [lease.case_name])
+            validated.returncode = result.returncode
+            result = validated
+        row = next(
+            iter(result.details or [DetailRow(name=lease.case_name, passed=0, total=1, status="fail")]),
+            DetailRow(name=lease.case_name, passed=0, total=1, status="fail"),
+        )
+        row_by_name[lease.case_name] = DetailRow(
+            name=row.name,
+            passed=row.passed,
+            total=row.total,
+            status=row.status,
+        )
+        if progress_reporter is not None:
+            progress_reporter.mark_worker_switching(shard_index)
+
+    combined_log_path = logs_dir / f"{shard_log_label}.out"
+    combined_log_path.write_text(
+        "\n".join(chunk for chunk in combined_chunks if chunk).rstrip() + "\n",
+        encoding="utf-8",
+    )
+
+    merged = CaseResult(sample=sample, group=group, runtime=runtime, arch=arch, log_path=combined_log_path)
+    merged.details = [row_by_name[case_name] for case_name in worker_case_order if case_name in row_by_name]
+    merged.ok = all(row.passed == row.total for row in merged.details)
+    merged.summary = f"{merged.passed}/{merged.total}"
+    if recovered_stalls:
+        merged.stop_reason = "; ".join(f"recovered stall at {case}" for case in recovered_stalls)
+    return merged
+
+
+def run_ltp_stdin_persistent_worker(
+    sample: str,
+    shard_index: int,
+    out_dir: Path,
+    logs_dir: Path,
+    timeout: int,
+    *,
+    command_override: str,
+    ltp_runtime_mul: float,
+    runtime: str,
+    queue: LtpWorkStealingQueue,
+    progress_reporter: LtpShardRuntimeProgressReporter | None = None,
+    log_label: str | None = None,
+) -> CaseResult:
+    group, sample_runtime, arch = parse_sample(sample)
+    assert group == "ltp"
+    assert sample_runtime == runtime
+
+    row_by_name: dict[str, DetailRow] = {}
+    combined_chunks: list[str] = []
+    recovered_stalls: list[str] = []
+    worker_case_order: list[str] = []
+    shard_label = official_case_label(group, runtime, arch)
+    shard_log_label = log_label or f"{sample}.worker{shard_index + 1}"
+    runtime_root = out_dir / runtime
+    terminal_failure: CaseResult | None = None
+    attempt = 0
+
+    while True:
+        attempt += 1
+        queue.set_worker_attempt(shard_index, attempt)
+        ensure_ltp_script_uses_stdin_queue(
+            runtime_root,
+            runtime_mul=ltp_runtime_mul,
+        )
+        if progress_reporter is not None:
+            progress_reporter.mark_worker_booting(shard_index, restarting=attempt > 1)
+
+        log_path = logs_dir / f"{shard_log_label}.try{attempt}.out"
+        image_path = logs_dir / f"{shard_log_label}.try{attempt}.qcow2"
+        base_image_path = ensure_direct_base_image(out_dir, command_override)
+        create_overlay_image(base_image_path, image_path)
+        tty_state = capture_tty_state()
+        ready_pending = 0
+        done_sent = False
+        read_offset = 0
+        partial_line = ""
+        fatal_seen_at: float | None = None
+        fatal_reason: str | None = None
+        last_progress_at = time.monotonic()
+        start = last_progress_at
+        returncode: int | None = None
+        timed_out = False
+        stop_reason: str | None = None
+
+        with log_path.open("w", encoding="utf-8", errors="ignore") as log_file:
+            proc = subprocess.Popen(
+                qemu_command(arch, image_path, image_format="qcow2"),
+                cwd=ROOT,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.PIPE,
+                start_new_session=True,
+                text=True,
+            )
+            register_active_child_proc(proc)
+            try:
+                while True:
+                    polled = proc.poll()
+                    if progress_reporter is None:
+                        refresh_live_line(log_path)
+                    try:
+                        size = log_path.stat().st_size
+                    except FileNotFoundError:
+                        size = 0
+                    if size != read_offset:
+                        now = time.monotonic()
+                        last_progress_at = now
+                        read_offset, partial_line, new_lines = read_appended_log_lines(log_path, read_offset, partial_line)
+                        if new_lines:
+                            mark_ltp_queue_finished_cases(queue, new_lines)
+                            ready_pending += sum(1 for line in new_lines if line == LTP_STDIN_TESTCODE_READY_MARKER)
+                            if progress_reporter is not None:
+                                progress_reporter.consume(shard_index, new_lines, now)
+                            reason = fatal_log_reason(read_recent_log_lines(log_path))
+                            if reason is not None:
+                                fatal_seen_at = now
+                                fatal_reason = reason
+                    while ready_pending > 0 and proc.stdin is not None and not proc.stdin.closed:
+                        lease = queue.claim_next(shard_index)
+                        if lease is None:
+                            if not done_sent:
+                                proc.stdin.write(LTP_QUEUE_DONE_SENTINEL + "\n")
+                                proc.stdin.flush()
+                                done_sent = True
+                            ready_pending = 0
+                            break
+                        worker_case_order.append(lease.case_name)
+                        proc.stdin.write(lease.runtest_line + "\n")
+                        proc.stdin.flush()
+                        ready_pending -= 1
+                    if polled is not None:
+                        returncode = polled
+                        read_offset, partial_line, new_lines = read_appended_log_lines(log_path, read_offset, partial_line)
+                        if partial_line:
+                            new_lines.append(sanitize_line(partial_line))
+                        if new_lines:
+                            mark_ltp_queue_finished_cases(queue, new_lines)
+                            if progress_reporter is not None:
+                                progress_reporter.consume(shard_index, new_lines, time.monotonic())
+                        break
+                    if timeout is not None and time.monotonic() - start > timeout:
+                        timed_out = True
+                        stop_reason = f"timeout after {timeout}s"
+                        terminate_process_group(proc)
+                        break
+                    if (
+                        SHARDED_LTP_SILENT_IDLE_TIMEOUT is not None
+                        and size > 0
+                        and time.monotonic() - last_progress_at > SHARDED_LTP_SILENT_IDLE_TIMEOUT
+                    ):
+                        timed_out = True
+                        stop_reason = f"silent log stall after {SHARDED_LTP_SILENT_IDLE_TIMEOUT:.0f}s idle"
+                        terminate_process_group(proc)
+                        break
+                    if (
+                        FATAL_IDLE_TIMEOUT is not None
+                        and fatal_seen_at is not None
+                        and time.monotonic() - last_progress_at > FATAL_IDLE_TIMEOUT
+                    ):
+                        timed_out = True
+                        stop_reason = f"fatal log stall after {fatal_reason} ({FATAL_IDLE_TIMEOUT:.0f}s idle)"
+                        terminate_process_group(proc)
+                        break
+                    time.sleep(LIVE_POLL_INTERVAL)
+            finally:
+                clear_live_line()
+                restore_tty_state(tty_state)
+                unregister_active_child_proc(proc)
+                try:
+                    if proc.stdin is not None:
+                        proc.stdin.close()
+                except Exception:
+                    pass
+                if proc.poll() is None:
+                    terminate_process_group(proc)
+        image_path.unlink(missing_ok=True)
+        base_image_path.unlink(missing_ok=True)
+
+        for case_name in queue.assigned_case_names(shard_index, attempt):
+            if case_name not in worker_case_order:
+                worker_case_order.append(case_name)
+        normalize_ltp_log_file(log_path)
+        combined_chunks.append(f"===== LTP WORKER {shard_index + 1} ATTEMPT {attempt} =====")
+        combined_chunks.append(read_text(log_path).rstrip())
+
+        result = CaseResult(
+            sample=sample,
+            group=group,
+            runtime=runtime,
+            arch=arch,
+            log_path=log_path,
+            timed_out=timed_out,
+            returncode=returncode,
+            stop_reason=stop_reason,
+        )
+
+        assigned_cases = queue.assigned_case_names(shard_index, attempt)
+        if not timed_out:
+            if assigned_cases:
+                validated = validate_case(sample, log_path, assigned_cases)
+                validated.returncode = returncode
+                result = validated
+                for row in result.details or []:
+                    row_by_name[row.name] = DetailRow(
+                        name=row.name,
+                        passed=row.passed,
+                        total=row.total,
+                        status=row.status,
+                    )
+            terminal_failure = result
+            break
+
+        lines = read_text(log_path).splitlines()
+        completed_cases, stalled_case = ltp_shard_completed_and_stalled_cases(lines, assigned_cases)
+        if completed_cases:
+            partial = validate_case(sample, log_path, completed_cases)
+            for row in partial.details or []:
+                row_by_name[row.name] = DetailRow(
+                    name=row.name,
+                    passed=row.passed,
+                    total=row.total,
+                    status=row.status,
+                )
+
+        stalled_lease = queue.mark_worker_stalled(shard_index)
+        if stalled_case is None and stalled_lease is not None:
+            stalled_case = stalled_lease.case_name
+
+        if stalled_case is None:
+            terminal_failure = result
+            break
+
+        row_by_name[stalled_case] = DetailRow(name=stalled_case, passed=0, total=1, status="fail")
+        recovered_stalls.append(stalled_case)
+        if progress_reporter is not None:
+            progress_reporter.mark_stalled_case(shard_index, stalled_case)
+        console(
+            f"[ltp-shard-restart] {shard_label} shard{shard_index + 1} "
+            f"mark fail {stalled_case}"
+        )
+        if not queue.has_pending_cases():
+            break
+
+    combined_log_path = logs_dir / f"{shard_log_label}.out"
+    combined_log_path.write_text(
+        "\n".join(chunk for chunk in combined_chunks if chunk).rstrip() + "\n",
+        encoding="utf-8",
+    )
+
+    merged = CaseResult(sample=sample, group=group, runtime=runtime, arch=arch, log_path=combined_log_path)
+    merged.details = [
+        row_by_name[case_name]
+        for case_name in worker_case_order
+        if case_name in row_by_name
+    ]
+    merged.ok = all(row.passed == row.total for row in merged.details)
+    merged.summary = f"{merged.passed}/{merged.total}"
+    if terminal_failure is not None:
+        merged.returncode = terminal_failure.returncode
+        if terminal_failure.error and not recovered_stalls:
+            merged.error = terminal_failure.error
+        if terminal_failure.stop_reason and not recovered_stalls:
+            merged.stop_reason = terminal_failure.stop_reason
+        if terminal_failure.timed_out and not recovered_stalls:
+            merged.timed_out = True
+            merged.skipped = terminal_failure.skipped
+    if recovered_stalls:
+        merged.stop_reason = "; ".join(f"recovered stall at {case}" for case in recovered_stalls)
+    return merged
+
+
 def run_ltp_shard_with_restarts(
     sample: str,
     shard_index: int,
@@ -5188,284 +5687,7 @@ def run_ltp_shard_with_restarts(
     return merged
 
 
-def run_ltp_sharded_sample_dynamic_lease(
-    sample: str,
-    logs_dir: Path,
-    timeout: int,
-    *,
-    rebuild_rootfs: bool,
-    variants: dict[tuple[str, str], Path],
-    ltp_runtime_mul: float,
-    ltp_start_case: str | None,
-    shard_count: int,
-) -> CaseResult:
-    group, runtime, arch = parse_sample(sample)
-    assert group == "ltp"
-    ordered_cases = ltp_case_names(start_case=ltp_start_case)
-    worker_count = max(1, min(shard_count, len(ordered_cases)))
-    case_runtime_weights, point_runtime_weights = load_ltp_case_runtime_weights(runtime, arch)
-    heavy_cases = [
-        (case_name, case_runtime_weights.get(case_name, 0))
-        for case_name in ordered_cases
-        if case_runtime_weights.get(case_name, 0) >= LTP_HEAVY_CASE_WEIGHT_THRESHOLD
-    ]
-    if heavy_cases:
-        heavy_summary = ", ".join(
-            f"{case_name}={weight}s"
-            for case_name, weight in sorted(heavy_cases, key=lambda item: (-item[1], item[0]))[:8]
-        )
-        console(
-            f"[ltp-schedule] {official_case_label(group, runtime, arch)} "
-            f"heavy-singletons={len(heavy_cases)} threshold={LTP_HEAVY_CASE_WEIGHT_THRESHOLD}s "
-            f"dynamic-lease regular<= {LTP_DYNAMIC_LEASE_REGULAR_MAX_CASES}cases/{LTP_DYNAMIC_LEASE_REGULAR_TARGET_SEC}s "
-            f"warm<= {LTP_DYNAMIC_LEASE_WARM_MAX_CASES}cases/{LTP_DYNAMIC_LEASE_WARM_TARGET_SEC}s "
-            f"weights=case:{len(case_runtime_weights)} point:{len(point_runtime_weights)} "
-            f"top={heavy_summary}"
-        )
-    else:
-        console(
-            f"[ltp-schedule] {official_case_label(group, runtime, arch)} "
-            f"dynamic-lease regular<= {LTP_DYNAMIC_LEASE_REGULAR_MAX_CASES}cases/{LTP_DYNAMIC_LEASE_REGULAR_TARGET_SEC}s "
-            f"warm<= {LTP_DYNAMIC_LEASE_WARM_MAX_CASES}cases/{LTP_DYNAMIC_LEASE_WARM_TARGET_SEC}s "
-            f"weights=case:{len(case_runtime_weights)} point:{len(point_runtime_weights)}"
-        )
-    worker_rootfs_specs: list[tuple[int, Path]] = []
-    official_rootfs_root = WORK_ROOT / "rootfs-official"
-    official_rootfs_root.mkdir(parents=True, exist_ok=True)
-    rootfs_stage_started = time.monotonic()
-    rootfs_progress_stage = f"prepare official rootfs {arch} {runtime} ltp shards"
-    built_workers = 0
-    reused_workers = 0
-    update_stage_progress(rootfs_progress_stage, 0, worker_count, rootfs_stage_started)
-    for index in range(worker_count):
-        out_dir = official_ltp_worker_rootfs_dir(official_rootfs_root, sample, worker_count, index)
-        marker = out_dir / ".osk_official_rootfs_ready"
-        needs_rebuild = (
-            rebuild_rootfs
-            or not marker.exists()
-            or official_rootfs_is_stale(out_dir, [sample], ordered_cases, None)
-        )
-        if needs_rebuild:
-            update_stage_progress(
-                rootfs_progress_stage,
-                index,
-                worker_count,
-                rootfs_stage_started,
-                detail=f"building shard{index + 1}/{worker_count}",
-            )
-            build_official_rootfs_dir(
-                arch,
-                variants.get((arch, "glibc")),
-                variants.get((arch, "musl")),
-                out_dir,
-                [sample],
-                ordered_cases,
-                ltp_runtime_mul,
-                None,
-            )
-            assert_official_rootfs_ready(out_dir, [sample], ordered_cases, None)
-            marker.write_text(datetime.now(timezone.utc).isoformat(), encoding="utf-8")
-            built_workers += 1
-        else:
-            refresh_official_rootfs_wrappers(
-                out_dir,
-                [sample],
-                ordered_cases,
-                ltp_runtime_mul,
-                None,
-                arch=arch,
-                glibc_rootfs=variants.get((arch, "glibc")),
-                musl_rootfs=variants.get((arch, "musl")),
-            )
-            assert_official_rootfs_ready(out_dir, [sample], ordered_cases, None)
-            reused_workers += 1
-        worker_rootfs_specs.append((index, out_dir))
-        update_stage_progress(
-            rootfs_progress_stage,
-            index + 1,
-            worker_count,
-            rootfs_stage_started,
-            detail=f"reuse={reused_workers} build={built_workers}",
-        )
-
-    if built_workers == 0:
-        rootfs_final_stage = f"reuse official rootfs {arch} {runtime} ltp shards"
-    elif reused_workers == 0:
-        rootfs_final_stage = f"build official rootfs {arch} {runtime} ltp shards"
-    else:
-        rootfs_final_stage = rootfs_progress_stage
-    finish_stage_progress(
-        rootfs_final_stage,
-        worker_count,
-        worker_count,
-        rootfs_stage_started,
-        detail=f"reuse={reused_workers} build={built_workers}",
-    )
-
-    command_override = f"/busybox sh /{runtime}/{SCRIPT_BY_GROUP[group]}"
-    shard_label = official_case_label(group, runtime, arch)
-    runtime_progress = LtpShardRuntimeProgressReporter(shard_label, worker_count, len(ordered_cases))
-    runtime_progress.poll(time.monotonic())
-    shard_run_started = time.monotonic()
-    completed_shard_count = 0
-    completed_shard_passed = 0
-    completed_shard_total = 0
-    update_ltp_shard_progress(
-        shard_label,
-        completed_shard_count,
-        worker_count,
-        shard_run_started,
-        completed_shard_passed,
-        completed_shard_total,
-    )
-    pending_cases = ltp_weighted_case_queue(ordered_cases, case_runtime_weights, point_runtime_weights)
-    pending_cases_lock = threading.Lock()
-    next_lease_id = [1]
-
-    def flattened_completed_results() -> list[CaseResult]:
-        return [
-            result
-            for worker_batch_results in worker_results
-            if worker_batch_results is not None
-            for _, result in sorted(worker_batch_results, key=lambda item: item[0])
-        ]
-
-    def write_combined_ltp_log(results_to_merge: list[CaseResult]) -> Path:
-        combined_log_path = logs_dir / f"{sample}.out"
-        combined_chunks: list[str] = []
-        for index, result in enumerate(results_to_merge, start=1):
-            combined_chunks.append(f"===== LTP SHARD LEASE {index}/{len(results_to_merge)} =====")
-            combined_chunks.append(read_text(result.log_path).rstrip())
-        combined_log_path.write_text(
-            "\n".join(chunk for chunk in combined_chunks if chunk).rstrip() + "\n",
-            encoding="utf-8",
-        )
-        return combined_log_path
-
-    def worker_loop(worker_index: int, out_dir: Path) -> list[tuple[int, CaseResult]]:
-        worker_results: list[tuple[int, CaseResult]] = []
-        while True:
-            runtime_progress.mark_worker_switching(worker_index)
-            with pending_cases_lock:
-                lease = claim_next_ltp_dynamic_lease(pending_cases, next_lease_id)
-                if lease is None:
-                    break
-                lease_id, lease_cases, _lease_weight = lease
-            runtime_progress.mark_worker_booting(worker_index)
-            lease_result = run_ltp_shard_with_restarts(
-                sample,
-                worker_index,
-                lease_cases,
-                out_dir,
-                logs_dir,
-                timeout,
-                command_override=command_override,
-                ltp_runtime_mul=ltp_runtime_mul,
-                arch=arch,
-                variants=variants,
-                progress_reporter=runtime_progress,
-                log_label=f"{sample}.worker{worker_index + 1}.lease{lease_id}",
-            )
-            worker_results.append((lease_id, lease_result))
-            runtime_progress.mark_worker_switching(worker_index)
-        return worker_results
-
-    worker_results: list[list[tuple[int, CaseResult]] | None] = [None] * worker_count
-    try:
-        try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
-                future_map = {
-                    executor.submit(worker_loop, index, out_dir): index
-                    for index, out_dir in worker_rootfs_specs
-                }
-                for future in concurrent.futures.as_completed(future_map):
-                    index = future_map[future]
-                    shard_batch_results = future.result()
-                    worker_results[index] = shard_batch_results
-                    worker_passed = sum(result.passed for _, result in shard_batch_results)
-                    worker_total = sum(result.total for _, result in shard_batch_results)
-                    runtime_progress.mark_shard_completed(index)
-                    completed_shard_count += 1
-                    completed_shard_passed += worker_passed
-                    completed_shard_total += worker_total
-                    update_ltp_shard_progress(
-                        shard_label,
-                        completed_shard_count,
-                        worker_count,
-                        shard_run_started,
-                        completed_shard_passed,
-                        completed_shard_total,
-                        detail=f"last=shard{index + 1}",
-                    )
-        except KeyboardInterrupt:
-            terminate_all_active_child_procs()
-            raise
-    finally:
-        runtime_progress.clear()
-        completed_partial_results = flattened_completed_results()
-        if completed_partial_results:
-            try:
-                write_combined_ltp_log(completed_partial_results)
-            except Exception:
-                pass
-        for _, out_dir in worker_rootfs_specs:
-            try:
-                refresh_official_rootfs_wrappers(
-                    out_dir,
-                    [sample],
-                    ordered_cases,
-                    ltp_runtime_mul,
-                    None,
-                    arch=arch,
-                    glibc_rootfs=variants.get((arch, "glibc")),
-                    musl_rootfs=variants.get((arch, "musl")),
-                )
-                assert_official_rootfs_ready(out_dir, [sample], ordered_cases, None)
-            except Exception:
-                pass
-    finish_ltp_shard_progress(
-        shard_label,
-        completed_shard_count,
-        worker_count,
-        shard_run_started,
-        completed_shard_passed,
-        completed_shard_total,
-    )
-
-    completed_shards = flattened_completed_results()
-    combined_log_path = write_combined_ltp_log(completed_shards)
-    merged = merge_ltp_shard_results(sample, completed_shards, ordered_cases, combined_log_path)
-    merged.shard_timing_lines = runtime_progress.snapshot_timing_lines()
-    parallel_elapsed_sec = max(0.0, time.monotonic() - shard_run_started)
-    single_boot_estimate = estimate_ltp_single_boot_runtime(
-        ordered_cases,
-        runtime,
-        arch,
-        observed_log_path=combined_log_path,
-    )
-    source_label = (
-        "current-shards"
-        if single_boot_estimate.history_case_count == 0 and single_boot_estimate.startup_source == "current"
-        else (
-            "current+history"
-            if (single_boot_estimate.exact_case_count > 0 or single_boot_estimate.point_case_count > 0)
-            else single_boot_estimate.startup_source
-        )
-    )
-    console(
-        f"[ltp-estimate] {shard_label} parallel={format_duration(parallel_elapsed_sec)} "
-        f"single-boot≈{format_duration(single_boot_estimate.total_sec)} "
-        f"(startup≈{format_duration(single_boot_estimate.startup_sec)} "
-        f"+ cases≈{format_duration(single_boot_estimate.case_sec)}) "
-        f"workers={worker_count} source={source_label} "
-        f"observed={single_boot_estimate.exact_case_count}/{single_boot_estimate.total_case_count} "
-        f"point-fallback={single_boot_estimate.point_case_count} "
-        f"history-fallback={single_boot_estimate.history_case_count}"
-    )
-    return merged
-
-
-def run_ltp_sharded_sample_work_stealing(
+def run_ltp_sharded_sample(
     sample: str,
     logs_dir: Path,
     timeout: int,
@@ -5595,7 +5817,12 @@ def run_ltp_sharded_sample_work_stealing(
     )
     queue_cases = ltp_queue_cases(ordered_cases, case_runtime_weights, point_runtime_weights)
     work_queue = LtpWorkStealingQueue(queue_cases)
-    queue_server, queue_url = start_ltp_work_stealing_server(work_queue)
+    use_guest_queue = arch == "rv"
+    use_stdin_queue = arch == "la"
+    queue_server: LtpWorkStealingHttpServer | None = None
+    queue_url: str | None = None
+    if use_guest_queue:
+        queue_server, queue_url = start_ltp_work_stealing_server(work_queue)
 
     def flattened_completed_results() -> list[CaseResult]:
         return [result for result in worker_results if result is not None]
@@ -5613,7 +5840,37 @@ def run_ltp_sharded_sample_work_stealing(
         return combined_log_path
 
     def worker_loop(worker_index: int, out_dir: Path) -> CaseResult:
-        return run_ltp_persistent_worker(
+        if use_guest_queue:
+            assert queue_url is not None
+            return run_ltp_persistent_worker(
+                sample,
+                worker_index,
+                out_dir,
+                logs_dir,
+                timeout,
+                command_override=command_override,
+                ltp_runtime_mul=ltp_runtime_mul,
+                runtime=runtime,
+                queue=work_queue,
+                queue_url=queue_url,
+                progress_reporter=runtime_progress,
+                log_label=f"{sample}.worker{worker_index + 1}",
+            )
+        if use_stdin_queue:
+            return run_ltp_stdin_persistent_worker(
+                sample,
+                worker_index,
+                out_dir,
+                logs_dir,
+                timeout,
+                command_override=command_override,
+                ltp_runtime_mul=ltp_runtime_mul,
+                runtime=runtime,
+                queue=work_queue,
+                progress_reporter=runtime_progress,
+                log_label=f"{sample}.worker{worker_index + 1}",
+            )
+        return run_ltp_host_lease_worker(
             sample,
             worker_index,
             out_dir,
@@ -5622,8 +5879,9 @@ def run_ltp_sharded_sample_work_stealing(
             command_override=command_override,
             ltp_runtime_mul=ltp_runtime_mul,
             runtime=runtime,
+            arch=arch,
+            variants=variants,
             queue=work_queue,
-            queue_url=queue_url,
             progress_reporter=runtime_progress,
             log_label=f"{sample}.worker{worker_index + 1}",
         )
@@ -5657,8 +5915,9 @@ def run_ltp_sharded_sample_work_stealing(
             terminate_all_active_child_procs()
             raise
     finally:
-        queue_server.shutdown()
-        queue_server.server_close()
+        if queue_server is not None:
+            queue_server.shutdown()
+            queue_server.server_close()
         runtime_progress.clear()
         completed_partial_results = flattened_completed_results()
         if completed_partial_results:
@@ -5721,46 +5980,6 @@ def run_ltp_sharded_sample_work_stealing(
         f"history-fallback={single_boot_estimate.history_case_count}"
     )
     return merged
-
-
-def run_ltp_sharded_sample(
-    sample: str,
-    logs_dir: Path,
-    timeout: int,
-    *,
-    rebuild_rootfs: bool,
-    variants: dict[tuple[str, str], Path],
-    ltp_runtime_mul: float,
-    ltp_start_case: str | None,
-    shard_count: int,
-) -> CaseResult:
-    mode = os.environ.get("OSK_LTP_SHARD_MODE", "dynamic-lease").strip().lower()
-    if mode in {"work-stealing", "work_stealing", "queue", "per-case", "per_case"}:
-        return run_ltp_sharded_sample_work_stealing(
-            sample,
-            logs_dir,
-            timeout,
-            rebuild_rootfs=rebuild_rootfs,
-            variants=variants,
-            ltp_runtime_mul=ltp_runtime_mul,
-            ltp_start_case=ltp_start_case,
-            shard_count=shard_count,
-        )
-    if mode in {"dynamic-lease", "dynamic_lease", "dynamic", "lease", ""}:
-        return run_ltp_sharded_sample_dynamic_lease(
-            sample,
-            logs_dir,
-            timeout,
-            rebuild_rootfs=rebuild_rootfs,
-            variants=variants,
-            ltp_runtime_mul=ltp_runtime_mul,
-            ltp_start_case=ltp_start_case,
-            shard_count=shard_count,
-        )
-    fail(
-        f"unknown OSK_LTP_SHARD_MODE={mode!r} "
-        "(expected one of: dynamic-lease, work-stealing)"
-    )
 
 
 def run_sample(sample: str, rootfs_dir: Path, logs_dir: Path, timeout: int) -> CaseResult:

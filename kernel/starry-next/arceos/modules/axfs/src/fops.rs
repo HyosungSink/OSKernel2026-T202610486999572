@@ -273,7 +273,10 @@ impl File {
                         .ok_or_else(|| ax_err_type!(InvalidInput))?;
                 }
             } else {
-                node.truncate(end)?;
+                let written = node.write_at(end - 1, &[0])?;
+                if written == 0 {
+                    return ax_err!(StorageFull);
+                }
             }
         }
         Ok(())

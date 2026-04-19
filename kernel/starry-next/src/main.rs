@@ -50,6 +50,7 @@ const CONTEST_GROUPS: [&str; 11] = [
     "lua",
     "netperf",
 ];
+const WATCHDOG_STACK_SIZE: usize = 16 * 1024;
 
 const RUNTIME_SCRIPT_DIRS: [&str; 2] = ["/glibc", "/musl"];
 const OFFICIAL_ALLOWED_GROUPS_PATH: &str = "/.osk_allowed_runtime_groups";
@@ -93,7 +94,7 @@ fn arm_total_competition_watchdog() -> u64 {
         monotonic_time_nanos().saturating_add(COMPETITION_TOTAL_TIMEOUT.as_nanos() as u64);
     COMPETITION_TOTAL_DEADLINE_NS.store(deadline_ns, Ordering::SeqCst);
     COMPETITION_TOTAL_TIMED_OUT.store(0, Ordering::SeqCst);
-    axtask::spawn(move || loop {
+    axtask::spawn_raw(move || loop {
         if COMPETITION_TOTAL_WATCHDOG_TOKEN.load(Ordering::Acquire) != token {
             break;
         }
@@ -119,7 +120,7 @@ fn arm_total_competition_watchdog() -> u64 {
             break;
         }
         axtask::sleep(Duration::from_millis(200));
-    });
+    }, "competition-watchdog".into(), WATCHDOG_STACK_SIZE);
     token
 }
 

@@ -13,7 +13,7 @@ use axio::{PollState, SeekFrom};
 use axns::{ResArc, def_resource};
 use axsync::Mutex;
 
-use super::fd_ops::{FileLike, get_file_like};
+use super::fd_ops::{FD_CLOEXEC_FLAG, FileLike, get_file_like};
 use crate::AT_FDCWD;
 use crate::{ctypes, utils::char_ptr_to_str};
 
@@ -133,8 +133,6 @@ impl LoopDeviceState {
     }
 }
 
-const SYNTHETIC_LOOP_MAX_SIZE: u64 = 64 * 1024 * 1024;
-
 def_resource! {
     pub static PROC_NET_IPV4_CONF_LO_TAG: ResArc<Mutex<i32>> = ResArc::new();
     pub static PROC_NET_IPV4_CONF_DEFAULT_TAG: ResArc<Mutex<i32>> = ResArc::new();
@@ -242,6 +240,28 @@ pub fn virtual_device_stat(path: &str) -> Option<ctypes::stat> {
         "/dev/tty" => Some(char_device_stat(0o666, DEV_TTY_MAJOR, DEV_TTY_MINOR)),
         _ => None,
     }
+}
+
+pub fn has_open_writable_file_under(path: &str) -> bool {
+    let mount_path = path.trim_end_matches('/');
+    let table = super::fd_ops::FD_TABLE.read();
+    table.iter().any(|(_, file_like)| {
+        let flags = file_like.status_flags() as u32;
+        let write_open = (flags & 0b11) == ctypes::O_WRONLY
+            || (flags & 0b11) == ctypes::O_RDWR
+            || (flags & ctypes::O_APPEND) != 0;
+        if !write_open {
+            return false;
+        }
+        let Ok(file) = file_like.clone().into_any().downcast::<File>() else {
+            return false;
+        };
+        let file_path = file.path().trim_end_matches('/');
+        file_path == mount_path
+            || file_path
+                .strip_prefix(mount_path)
+                .is_some_and(|rest| rest.starts_with('/'))
+    })
 }
 
 fn current_proc_net_tag(kind: ProcNetSysctlKind) -> i32 {
@@ -672,6 +692,10 @@ impl File {
         super::fd_ops::add_file_like(Arc::new(self))
     }
 
+    fn add_to_fd_table_with_flags(self, fd_flags: usize) -> LinuxResult<c_int> {
+        super::fd_ops::add_file_like_with_fd_flags(Arc::new(self), fd_flags)
+    }
+
     fn from_fd(fd: c_int) -> LinuxResult<Arc<Self>> {
         let f = super::fd_ops::get_file_like(fd)?;
         f.into_any()
@@ -895,12 +919,7 @@ impl LoopDeviceFile {
             return Err(LinuxError::EBUSY);
         }
         let backing_size = stat.st_size.max(0) as u64;
-        let visible_size = backing_size.min(SYNTHETIC_LOOP_MAX_SIZE);
-        let visible_size = if visible_size == 0 {
-            SYNTHETIC_LOOP_MAX_SIZE
-        } else {
-            visible_size
-        };
+        let visible_size = if backing_size == 0 { 0 } else { backing_size };
         state.backing = Some(backing);
         state.configured = false;
         state.visible_size = visible_size;
@@ -1426,10 +1445,12 @@ impl FileLike for File {
             return Err(LinuxError::EBADF);
         }
         let read_len = self.inner.lock().read(buf)?;
-        let now = current_timespec();
-        let mut times = self.times.lock();
-        times.atime = now;
-        store_path_times_key(self.path(), *times);
+        if self.status_flags.load(Ordering::Acquire) & (ctypes::O_NOATIME as usize) == 0 {
+            let now = current_timespec();
+            let mut times = self.times.lock();
+            times.atime = now;
+            store_path_times_key(self.path(), *times);
+        }
         Ok(read_len)
     }
 
@@ -1467,10 +1488,12 @@ impl FileLike for File {
             return Err(LinuxError::EBADF);
         }
         let read_len = self.inner.lock().read_at(offset, buf)?;
-        let now = current_timespec();
-        let mut times = self.times.lock();
-        times.atime = now;
-        store_path_times_key(self.path(), *times);
+        if self.status_flags.load(Ordering::Acquire) & (ctypes::O_NOATIME as usize) == 0 {
+            let now = current_timespec();
+            let mut times = self.times.lock();
+            times.atime = now;
+            store_path_times_key(self.path(), *times);
+        }
         Ok(read_len)
     }
 
@@ -1496,14 +1519,17 @@ impl FileLike for File {
 
     fn stat(&self) -> LinuxResult<ctypes::stat> {
         let metadata = self.inner.lock().get_attr()?;
-        let ty = metadata.file_type() as u8;
-        let (uid, gid, mode) = axfs::api::path_owner_mode(self.path(), metadata);
+        let meta = axfs::api::path_stat_metadata(self.path(), metadata);
+        let ty = meta.special_type.unwrap_or(metadata.file_type()) as u8;
+        let uid = meta.uid;
+        let gid = meta.gid;
+        let mode = meta.mode;
         let perm = mode as u32;
         let st_mode = ((ty as u32) << 12) | perm;
         let times = *self.times.lock();
         Ok(ctypes::stat {
             st_dev: REGULAR_FS_DEV_ID,
-            st_ino: self.inode,
+            st_ino: meta.ino,
             st_nlink: 1,
             st_mode,
             st_uid: uid,
@@ -1875,6 +1901,35 @@ fn file_status_flags(flags: c_int) -> usize {
     (flags as usize) & !(ctypes::O_CLOEXEC as usize)
 }
 
+fn file_descriptor_flags(flags: c_int) -> usize {
+    if (flags as u32 & ctypes::O_CLOEXEC) != 0 {
+        FD_CLOEXEC_FLAG
+    } else {
+        0
+    }
+}
+
+fn reject_final_symlink_for_nofollow(path: &str, flags: c_int) -> LinuxResult<()> {
+    if (flags as u32 & ctypes::O_NOFOLLOW) == 0 {
+        return Ok(());
+    }
+    let absolute = if path.starts_with('/') {
+        path.to_string()
+    } else {
+        let cwd = axfs::api::current_dir().map_err(LinuxError::from)?;
+        if cwd == "/" {
+            format!("/{path}")
+        } else {
+            format!("{}/{}", cwd.trim_end_matches('/'), path)
+        }
+    };
+    match axfs::api::readlink(absolute.as_str()).map_err(LinuxError::from) {
+        Ok(_) => Err(LinuxError::ELOOP),
+        Err(LinuxError::EINVAL) | Err(LinuxError::ENOENT) | Err(LinuxError::ENOTDIR) => Ok(()),
+        Err(err) => Err(err),
+    }
+}
+
 fn allow_directory_fallback(flags: c_int) -> bool {
     let flags = flags as u32;
     (flags & 0b11) == ctypes::O_RDONLY
@@ -1882,6 +1937,7 @@ fn allow_directory_fallback(flags: c_int) -> bool {
 }
 
 fn open_path(filename: &str, flags: c_int, mode: ctypes::mode_t) -> LinuxResult<c_int> {
+    reject_final_symlink_for_nofollow(filename, flags)?;
     let filename = resolve_final_symlink_for_open(filename)?;
     let write_like = (flags as u32 & 0b11) != ctypes::O_RDONLY
         || (flags as u32 & (ctypes::O_CREAT | ctypes::O_TRUNC | ctypes::O_APPEND)) != 0;
@@ -1958,6 +2014,7 @@ fn open_path(filename: &str, flags: c_int, mode: ctypes::mode_t) -> LinuxResult<
         &options,
         allow_directory_fallback(flags),
         file_status_flags(flags),
+        file_descriptor_flags(flags),
         (flags as u32 & ctypes::O_TRUNC) != 0,
     )?;
     if created {
@@ -2011,6 +2068,7 @@ pub fn sys_openat(
             } else {
                 alloc::format!("{dir_path}/{}", filename)
             };
+            reject_final_symlink_for_nofollow(full_path.as_str(), flags)?;
             if named_tmpfile_backing(full_path.as_str()).is_some() {
                 return open_existing_named_tmpfile(full_path.as_str(), flags);
             }
@@ -2025,6 +2083,7 @@ pub fn sys_openat(
                 &options,
                 allow_directory_fallback(flags),
                 file_status_flags(flags),
+                file_descriptor_flags(flags),
                 (flags as u32 & ctypes::O_TRUNC) != 0,
             )
         })
@@ -2041,6 +2100,7 @@ fn add_file_or_directory_fd<F, D, E>(
     options: &OpenOptions,
     allow_directory_fallback: bool,
     status_flags: usize,
+    fd_flags: usize,
     enforce_truncate: bool,
 ) -> LinuxResult<c_int>
 where
@@ -2063,7 +2123,7 @@ where
                     let now = current_timespec();
                     file.set_times(now, now);
                 }
-                file.add_to_fd_table()
+                file.add_to_fd_table_with_flags(fd_flags)
             }
         }
         Err(LinuxError::EISDIR) => {

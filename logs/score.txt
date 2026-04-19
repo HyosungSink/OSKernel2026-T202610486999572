@@ -1,0 +1,3576 @@
+Accpted
+
+评测完成
+
+总分：3376.0
+
+得分详情
+测试点	glibc-la	glibc-rv	musl-la	musl-rv	总分
+basic	0	0	0	0	0
+busybox	0	0	0	0	0
+cyclictest	0.0	0.0	0.0	0.0	0.0
+iozone	0.0	0.0	0.0	0.0	0.0
+iperf	0.0	0.0	0.0	0.0	0.0
+libcbench	0.0	0.0	0.0	0.0	0.0
+libctest	-	-	0	0	0
+lmbench	0.0	0.0	0.0	0.0	0.0
+ltp	1270	2106	0	0	3376
+lua	0	0	0	0	0
+netperf	0.0	0.0	0.0	0.0	0.0
+总分	1270.0	2106.0	0.0	0.0	3376.0
+basic-glibc
+测试点	rv	la	总分
+pass	all	score	pass	all	score
+test_brk	0	3	0	0	3	0	0
+test_chdir	0	3	0	0	3	0	0
+test_clone	0	4	0	0	4	0	0
+test_close	0	2	0	0	2	0	0
+test_dup	0	2	0	0	2	0	0
+test_dup2	0	2	0	0	2	0	0
+test_execve	0	3	0	0	3	0	0
+test_exit	0	2	0	0	2	0	0
+test_fork	0	3	0	0	3	0	0
+test_fstat	0	3	0	0	3	0	0
+test_getcwd	0	2	0	0	2	0	0
+test_getdents	0	5	0	0	5	0	0
+test_getpid	0	3	0	0	3	0	0
+test_getppid	0	2	0	0	2	0	0
+test_gettimeofday	0	3	0	0	3	0	0
+test_mkdir	0	3	0	0	3	0	0
+test_mmap	0	3	0	0	3	0	0
+test_mount	0	5	0	0	5	0	0
+test_munmap	0	4	0	0	4	0	0
+test_open	0	3	0	0	3	0	0
+test_openat	0	4	0	0	4	0	0
+test_pipe	0	4	0	0	4	0	0
+test_read	0	3	0	0	3	0	0
+test_sleep	0	2	0	0	2	0	0
+test_times	0	6	0	0	6	0	0
+test_umount	0	5	0	0	5	0	0
+test_uname	0	2	0	0	2	0	0
+test_unlink	0	2	0	0	2	0	0
+test_wait	0	4	0	0	4	0	0
+test_waitpid	0	4	0	0	4	0	0
+test_write	0	2	0	0	2	0	0
+test_yield	0	4	0	0	4	0	0
+总分			0			0	0
+
+basic-musl
+测试点	rv	la	总分
+pass	all	score	pass	all	score
+test_brk	0	3	0	0	3	0	0
+test_chdir	0	3	0	0	3	0	0
+test_clone	0	4	0	0	4	0	0
+test_close	0	2	0	0	2	0	0
+test_dup	0	2	0	0	2	0	0
+test_dup2	0	2	0	0	2	0	0
+test_execve	0	3	0	0	3	0	0
+test_exit	0	2	0	0	2	0	0
+test_fork	0	3	0	0	3	0	0
+test_fstat	0	3	0	0	3	0	0
+test_getcwd	0	2	0	0	2	0	0
+test_getdents	0	5	0	0	5	0	0
+test_getpid	0	3	0	0	3	0	0
+test_getppid	0	2	0	0	2	0	0
+test_gettimeofday	0	3	0	0	3	0	0
+test_mkdir	0	3	0	0	3	0	0
+test_mmap	0	3	0	0	3	0	0
+test_mount	0	5	0	0	5	0	0
+test_munmap	0	4	0	0	4	0	0
+test_open	0	3	0	0	3	0	0
+test_openat	0	4	0	0	4	0	0
+test_pipe	0	4	0	0	4	0	0
+test_read	0	3	0	0	3	0	0
+test_sleep	0	2	0	0	2	0	0
+test_times	0	6	0	0	6	0	0
+test_umount	0	5	0	0	5	0	0
+test_uname	0	2	0	0	2	0	0
+test_unlink	0	2	0	0	2	0	0
+test_wait	0	4	0	0	4	0	0
+test_waitpid	0	4	0	0	4	0	0
+test_write	0	2	0	0	2	0	0
+test_yield	0	4	0	0	4	0	0
+总分			0			0	0
+
+busybox-glibc
+测试点	rv	la	总分
+pass	all	score	pass	all	score
+busybox [ -f test.txt ]	0	1	0	0	1	0	0
+busybox ash -c exit	0	1	0	0	1	0	0
+busybox basename /aaa/bbb	0	1	0	0	1	0	0
+busybox cal	0	1	0	0	1	0	0
+busybox cat test.txt	0	1	0	0	1	0	0
+busybox clear	0	1	0	0	1	0	0
+busybox cp busybox_cmd.txt busybox_cmd.bak	0	1	0	0	1	0	0
+busybox cut -c 3 test.txt	0	1	0	0	1	0	0
+busybox date	0	1	0	0	1	0	0
+busybox df	0	1	0	0	1	0	0
+busybox dirname /aaa/bbb	0	1	0	0	1	0	0
+busybox dmesg	0	1	0	0	1	0	0
+busybox du	0	1	0	0	1	0	0
+busybox echo "#### file opration test"	0	1	0	0	1	0	0
+busybox echo "#### independent command test"	0	1	0	0	1	0	0
+busybox echo "1111111" >> test.txt	0	1	0	0	1	0	0
+busybox echo "2222222" >> test.txt	0	1	0	0	1	0	0
+busybox echo "aaaaaaa" >> test.txt	0	1	0	0	1	0	0
+busybox echo "bbbbbbb" >> test.txt	0	1	0	0	1	0	0
+busybox echo "ccccccc" >> test.txt	0	1	0	0	1	0	0
+busybox echo "hello world" > test.txt	0	1	0	0	1	0	0
+busybox expr 1 + 1	0	1	0	0	1	0	0
+busybox false	0	1	0	0	1	0	0
+busybox find -name "busybox_cmd.txt"	0	1	0	0	1	0	0
+busybox free	0	1	0	0	1	0	0
+busybox grep hello busybox_cmd.txt	0	1	0	0	1	0	0
+busybox head test.txt	0	1	0	0	1	0	0
+busybox hexdump -C test.txt	0	1	0	0	1	0	0
+busybox hwclock	0	1	0	0	1	0	0
+busybox kill 10	0	1	0	0	1	0	0
+busybox ls	0	1	0	0	1	0	0
+busybox md5sum test.txt	0	1	0	0	1	0	0
+busybox mkdir test_dir	0	1	0	0	1	0	0
+busybox more test.txt	0	1	0	0	1	0	0
+busybox mv test_dir test	0	1	0	0	1	0	0
+busybox od test.txt	0	1	0	0	1	0	0
+busybox ps	0	1	0	0	1	0	0
+busybox pwd	0	1	0	0	1	0	0
+busybox rm busybox_cmd.bak	0	1	0	0	1	0	0
+busybox rm test.txt	0	1	0	0	1	0	0
+busybox rmdir test	0	1	0	0	1	0	0
+busybox sh -c exit	0	1	0	0	1	0	0
+busybox sleep 1	0	1	0	0	1	0	0
+busybox sort test.txt | ./busybox uniq	0	1	0	0	1	0	0
+busybox stat test.txt	0	1	0	0	1	0	0
+busybox strings test.txt	0	1	0	0	1	0	0
+busybox tail test.txt	0	1	0	0	1	0	0
+busybox touch test.txt	0	1	0	0	1	0	0
+busybox true	0	1	0	0	1	0	0
+busybox uname	0	1	0	0	1	0	0
+busybox uptime	0	1	0	0	1	0	0
+busybox wc test.txt	0	1	0	0	1	0	0
+busybox which ls	0	1	0	0	1	0	0
+总分			0			0	0
+
+busybox-musl
+测试点	rv	la	总分
+pass	all	score	pass	all	score
+busybox [ -f test.txt ]	0	1	0	0	1	0	0
+busybox ash -c exit	0	1	0	0	1	0	0
+busybox basename /aaa/bbb	0	1	0	0	1	0	0
+busybox cal	0	1	0	0	1	0	0
+busybox cat test.txt	0	1	0	0	1	0	0
+busybox clear	0	1	0	0	1	0	0
+busybox cp busybox_cmd.txt busybox_cmd.bak	0	1	0	0	1	0	0
+busybox cut -c 3 test.txt	0	1	0	0	1	0	0
+busybox date	0	1	0	0	1	0	0
+busybox df	0	1	0	0	1	0	0
+busybox dirname /aaa/bbb	0	1	0	0	1	0	0
+busybox dmesg	0	1	0	0	1	0	0
+busybox du	0	1	0	0	1	0	0
+busybox echo "#### file opration test"	0	1	0	0	1	0	0
+busybox echo "#### independent command test"	0	1	0	0	1	0	0
+busybox echo "1111111" >> test.txt	0	1	0	0	1	0	0
+busybox echo "2222222" >> test.txt	0	1	0	0	1	0	0
+busybox echo "aaaaaaa" >> test.txt	0	1	0	0	1	0	0
+busybox echo "bbbbbbb" >> test.txt	0	1	0	0	1	0	0
+busybox echo "ccccccc" >> test.txt	0	1	0	0	1	0	0
+busybox echo "hello world" > test.txt	0	1	0	0	1	0	0
+busybox expr 1 + 1	0	1	0	0	1	0	0
+busybox false	0	1	0	0	1	0	0
+busybox find -name "busybox_cmd.txt"	0	1	0	0	1	0	0
+busybox free	0	1	0	0	1	0	0
+busybox grep hello busybox_cmd.txt	0	1	0	0	1	0	0
+busybox head test.txt	0	1	0	0	1	0	0
+busybox hexdump -C test.txt	0	1	0	0	1	0	0
+busybox hwclock	0	1	0	0	1	0	0
+busybox kill 10	0	1	0	0	1	0	0
+busybox ls	0	1	0	0	1	0	0
+busybox md5sum test.txt	0	1	0	0	1	0	0
+busybox mkdir test_dir	0	1	0	0	1	0	0
+busybox more test.txt	0	1	0	0	1	0	0
+busybox mv test_dir test	0	1	0	0	1	0	0
+busybox od test.txt	0	1	0	0	1	0	0
+busybox ps	0	1	0	0	1	0	0
+busybox pwd	0	1	0	0	1	0	0
+busybox rm busybox_cmd.bak	0	1	0	0	1	0	0
+busybox rm test.txt	0	1	0	0	1	0	0
+busybox rmdir test	0	1	0	0	1	0	0
+busybox sh -c exit	0	1	0	0	1	0	0
+busybox sleep 1	0	1	0	0	1	0	0
+busybox sort test.txt | ./busybox uniq	0	1	0	0	1	0	0
+busybox stat test.txt	0	1	0	0	1	0	0
+busybox strings test.txt	0	1	0	0	1	0	0
+busybox tail test.txt	0	1	0	0	1	0	0
+busybox touch test.txt	0	1	0	0	1	0	0
+busybox true	0	1	0	0	1	0	0
+busybox uname	0	1	0	0	1	0	0
+busybox uptime	0	1	0	0	1	0	0
+busybox wc test.txt	0	1	0	0	1	0	0
+busybox which ls	0	1	0	0	1	0	0
+总分			0			0	0
+
+cyclictest-glibc
+测试点	rv	la	总分
+baseline	score	baseline	score
+cyclictest NO_STRESS_P1 (microseconds)	1862.0	0.0	1862.0	0.0	0.0
+cyclictest NO_STRESS_P8 (microseconds)	1558.125	0.0	1558.125	0.0	0.0
+cyclictest STRESS_P1 (microseconds)	1310.0	0.0	1310.0	0.0	0.0
+cyclictest STRESS_P8 (microseconds)	13842.75	0.0	13842.75	0.0	0.0
+总分		0.0		0.0	0.0
+
+cyclictest-musl
+测试点	rv	la	总分
+baseline	score	baseline	score
+cyclictest NO_STRESS_P1 (microseconds)	1862.0	0.0	1862.0	0.0	0.0
+cyclictest NO_STRESS_P8 (microseconds)	1558.125	0.0	1558.125	0.0	0.0
+cyclictest STRESS_P1 (microseconds)	1310.0	0.0	1310.0	0.0	0.0
+cyclictest STRESS_P8 (microseconds)	13842.75	0.0	13842.75	0.0	0.0
+总分		0.0		0.0	0.0
+
+iozone-glibc
+测试点	rv	la	总分
+result	baseline	score	result	baseline	score
+iozone fwrite/fread 4 freaders (kb/sec)	0	7123.18	0.0	0	7123.18	0.0	0.0
+iozone fwrite/fread 4 fwriters (kb/sec)	0	3204.25	0.0	0	3204.25	0.0	0.0
+iozone pwrite/pread 4 pread readers (kb/sec)	0	14183.61	0.0	0	14183.61	0.0	0.0
+iozone pwrite/pread 4 pwrite writers (kb/sec)	0	3724.0	0.0	0	3724.0	0.0	0.0
+iozone pwritev/preadv 4 initial writers (kb/sec)	0	3609.25	0.0	0	3609.25	0.0	0.0
+iozone pwritev/preadv 4 rewriters (kb/sec)	0	8305.9	0.0	0	8305.9	0.0	0.0
+iozone random-read 4 initial writers (kb/sec)	0	3401.72	0.0	0	3401.72	0.0	0.0
+iozone random-read 4 random readers (kb/sec)	0	11082.03	0.0	0	11082.03	0.0	0.0
+iozone random-read 4 random writers (kb/sec)	0	7140.81	0.0	0	7140.81	0.0	0.0
+iozone random-read 4 rewriters (kb/sec)	0	7196.32	0.0	0	7196.32	0.0	0.0
+iozone read-backwards 4 initial writers (kb/sec)	0	3331.39	0.0	0	3331.39	0.0	0.0
+iozone read-backwards 4 reverse readers (kb/sec)	0	10743.42	0.0	0	10743.42	0.0	0.0
+iozone read-backwards 4 rewriters (kb/sec)	0	4906.05	0.0	0	4906.05	0.0	0.0
+iozone stride-read 4 initial writers (kb/sec)	0	3468.09	0.0	0	3468.09	0.0	0.0
+iozone stride-read 4 rewriters (kb/sec)	0	7004.64	0.0	0	7004.64	0.0	0.0
+iozone stride-read 4 stride readers (kb/sec)	0	11848.11	0.0	0	11848.11	0.0	0.0
+iozone write/read 4 initial writers (kb/sec)	0	3524.04	0.0	0	3524.04	0.0	0.0
+iozone write/read 4 re-readers (kb/sec)	0	13064.75	0.0	0	13064.75	0.0	0.0
+iozone write/read 4 readers (kb/sec)	0	13135.64	0.0	0	13135.64	0.0	0.0
+iozone write/read 4 rewriters (kb/sec)	0	7471.07	0.0	0	7471.07	0.0	0.0
+总分			0.0			0.0	0.0
+
+iozone-musl
+测试点	rv	la	总分
+result	baseline	score	result	baseline	score
+iozone fwrite/fread 4 freaders (kb/sec)	0	7123.18	0.0	0	7123.18	0.0	0.0
+iozone fwrite/fread 4 fwriters (kb/sec)	0	3204.25	0.0	0	3204.25	0.0	0.0
+iozone pwrite/pread 4 pread readers (kb/sec)	0	14183.61	0.0	0	14183.61	0.0	0.0
+iozone pwrite/pread 4 pwrite writers (kb/sec)	0	3724.0	0.0	0	3724.0	0.0	0.0
+iozone pwritev/preadv 4 initial writers (kb/sec)	0	3609.25	0.0	0	3609.25	0.0	0.0
+iozone pwritev/preadv 4 rewriters (kb/sec)	0	8305.9	0.0	0	8305.9	0.0	0.0
+iozone random-read 4 initial writers (kb/sec)	0	3401.72	0.0	0	3401.72	0.0	0.0
+iozone random-read 4 random readers (kb/sec)	0	11082.03	0.0	0	11082.03	0.0	0.0
+iozone random-read 4 random writers (kb/sec)	0	7140.81	0.0	0	7140.81	0.0	0.0
+iozone random-read 4 rewriters (kb/sec)	0	7196.32	0.0	0	7196.32	0.0	0.0
+iozone read-backwards 4 initial writers (kb/sec)	0	3331.39	0.0	0	3331.39	0.0	0.0
+iozone read-backwards 4 reverse readers (kb/sec)	0	10743.42	0.0	0	10743.42	0.0	0.0
+iozone read-backwards 4 rewriters (kb/sec)	0	4906.05	0.0	0	4906.05	0.0	0.0
+iozone stride-read 4 initial writers (kb/sec)	0	3468.09	0.0	0	3468.09	0.0	0.0
+iozone stride-read 4 rewriters (kb/sec)	0	7004.64	0.0	0	7004.64	0.0	0.0
+iozone stride-read 4 stride readers (kb/sec)	0	11848.11	0.0	0	11848.11	0.0	0.0
+iozone write/read 4 initial writers (kb/sec)	0	3524.04	0.0	0	3524.04	0.0	0.0
+iozone write/read 4 re-readers (kb/sec)	0	13064.75	0.0	0	13064.75	0.0	0.0
+iozone write/read 4 readers (kb/sec)	0	13135.64	0.0	0	13135.64	0.0	0.0
+iozone write/read 4 rewriters (kb/sec)	0	7471.07	0.0	0	7471.07	0.0	0.0
+总分			0.0			0.0	0.0
+
+iperf-glibc
+测试点	rv	la	总分
+baseline	score	baseline	score
+iperf BASIC_TCP (Mbits/sec)	796.0	0.0	796.0	0.0	0.0
+iperf BASIC_UDP (Mbits/sec)	393.0	0.0	393.0	0.0	0.0
+iperf PARALLEL_TCP (Mbits/sec)	1310.72	0.0	1310.72	0.0	0.0
+iperf PARALLEL_UDP (Mbits/sec)	442.0	0.0	442.0	0.0	0.0
+iperf REVERSE_TCP (Mbits/sec)	792.0	0.0	792.0	0.0	0.0
+iperf REVERSE_UDP (Mbits/sec)	381.0	0.0	381.0	0.0	0.0
+总分		0.0		0.0	0.0
+
+iperf-musl
+测试点	rv	la	总分
+baseline	score	baseline	score
+iperf BASIC_TCP (Mbits/sec)	796.0	0.0	796.0	0.0	0.0
+iperf BASIC_UDP (Mbits/sec)	393.0	0.0	393.0	0.0	0.0
+iperf PARALLEL_TCP (Mbits/sec)	1310.72	0.0	1310.72	0.0	0.0
+iperf PARALLEL_UDP (Mbits/sec)	442.0	0.0	442.0	0.0	0.0
+iperf REVERSE_TCP (Mbits/sec)	792.0	0.0	792.0	0.0	0.0
+iperf REVERSE_UDP (Mbits/sec)	381.0	0.0	381.0	0.0	0.0
+总分		0.0		0.0	0.0
+
+libcbench-glibc
+测试点	rv	la	总分
+baseline	score	baseline	score
+libc-bench b_malloc_big1 (0) (seconds)	0.118578071	0.0	0.118578071	0.0	0.0
+libc-bench b_malloc_big2 (0) (seconds)	0.107088632	0.0	0.107088632	0.0	0.0
+libc-bench b_malloc_bubble (0) (seconds)	0.36015349	0.0	0.36015349	0.0	0.0
+libc-bench b_malloc_sparse (0) (seconds)	0.384919462	0.0	0.384919462	0.0	0.0
+libc-bench b_malloc_thread_local (0) (seconds)	0.096989785	0.0	0.096989785	0.0	0.0
+libc-bench b_malloc_thread_stress (0) (seconds)	0.09632549	0.0	0.09632549	0.0	0.0
+libc-bench b_malloc_tiny1 (0) (seconds)	0.014186324	0.0	0.014186324	0.0	0.0
+libc-bench b_malloc_tiny2 (0) (seconds)	0.010810043	0.0	0.010810043	0.0	0.0
+libc-bench b_pthread_create_serial1 (0) (seconds)	0.892420718	0.0	0.892420718	0.0	0.0
+libc-bench b_pthread_createjoin_serial1 (0) (seconds)	1.284791557	0.0	1.284791557	0.0	0.0
+libc-bench b_pthread_createjoin_serial2 (0) (seconds)	1.006433722	0.0	1.006433722	0.0	0.0
+libc-bench b_pthread_uselesslock (0) (seconds)	0.080551368	0.0	0.080551368	0.0	0.0
+libc-bench b_regex_compile ("(a|b|c)*d*b") (seconds)	0.088259223	0.0	0.088259223	0.0	0.0
+libc-bench b_regex_search ("(a|b|c)*d*b") (seconds)	0.083251251	0.0	0.083251251	0.0	0.0
+libc-bench b_regex_search ("a{25}b") (seconds)	0.286712251	0.0	0.286712251	0.0	0.0
+libc-bench b_stdio_putcgetc (0) (seconds)	0.767822967	0.0	0.767822967	0.0	0.0
+libc-bench b_stdio_putcgetc_unlocked (0) (seconds)	0.765147171	0.0	0.765147171	0.0	0.0
+libc-bench b_string_memset (0) (seconds)	0.025313365	0.0	0.025313365	0.0	0.0
+libc-bench b_string_strchr (0) (seconds)	0.012811332	0.0	0.012811332	0.0	0.0
+libc-bench b_string_strlen (0) (seconds)	0.013459429	0.0	0.013459429	0.0	0.0
+libc-bench b_string_strstr ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac") (seconds)	0.013963025	0.0	0.013963025	0.0	0.0
+libc-bench b_string_strstr ("aaaaaaaaaaaaaaaaaaaaaaaaac") (seconds)	0.011749838	0.0	0.011749838	0.0	0.0
+libc-bench b_string_strstr ("aaaaaaaaaaaaaacccccccccccc") (seconds)	0.011944437	0.0	0.011944437	0.0	0.0
+libc-bench b_string_strstr ("abcdefghijklmnopqrstuvwxyz") (seconds)	0.011402239	0.0	0.011402239	0.0	0.0
+libc-bench b_string_strstr ("azbycxdwevfugthsirjqkplomn") (seconds)	0.020868089	0.0	0.020868089	0.0	0.0
+libc-bench b_utf8_bigbuf (0) (seconds)	0.036977802	0.0	0.036977802	0.0	0.0
+libc-bench b_utf8_onebyone (0) (seconds)	0.109599811	0.0	0.109599811	0.0	0.0
+总分		0.0		0.0	0.0
+
+libcbench-musl
+测试点	rv	la	总分
+baseline	score	baseline	score
+libc-bench b_malloc_big1 (0) (seconds)	0.118578071	0.0	0.118578071	0.0	0.0
+libc-bench b_malloc_big2 (0) (seconds)	0.107088632	0.0	0.107088632	0.0	0.0
+libc-bench b_malloc_bubble (0) (seconds)	0.36015349	0.0	0.36015349	0.0	0.0
+libc-bench b_malloc_sparse (0) (seconds)	0.384919462	0.0	0.384919462	0.0	0.0
+libc-bench b_malloc_thread_local (0) (seconds)	0.096989785	0.0	0.096989785	0.0	0.0
+libc-bench b_malloc_thread_stress (0) (seconds)	0.09632549	0.0	0.09632549	0.0	0.0
+libc-bench b_malloc_tiny1 (0) (seconds)	0.014186324	0.0	0.014186324	0.0	0.0
+libc-bench b_malloc_tiny2 (0) (seconds)	0.010810043	0.0	0.010810043	0.0	0.0
+libc-bench b_pthread_create_serial1 (0) (seconds)	0.892420718	0.0	0.892420718	0.0	0.0
+libc-bench b_pthread_createjoin_serial1 (0) (seconds)	1.284791557	0.0	1.284791557	0.0	0.0
+libc-bench b_pthread_createjoin_serial2 (0) (seconds)	1.006433722	0.0	1.006433722	0.0	0.0
+libc-bench b_pthread_uselesslock (0) (seconds)	0.080551368	0.0	0.080551368	0.0	0.0
+libc-bench b_regex_compile ("(a|b|c)*d*b") (seconds)	0.088259223	0.0	0.088259223	0.0	0.0
+libc-bench b_regex_search ("(a|b|c)*d*b") (seconds)	0.083251251	0.0	0.083251251	0.0	0.0
+libc-bench b_regex_search ("a{25}b") (seconds)	0.286712251	0.0	0.286712251	0.0	0.0
+libc-bench b_stdio_putcgetc (0) (seconds)	0.767822967	0.0	0.767822967	0.0	0.0
+libc-bench b_stdio_putcgetc_unlocked (0) (seconds)	0.765147171	0.0	0.765147171	0.0	0.0
+libc-bench b_string_memset (0) (seconds)	0.025313365	0.0	0.025313365	0.0	0.0
+libc-bench b_string_strchr (0) (seconds)	0.012811332	0.0	0.012811332	0.0	0.0
+libc-bench b_string_strlen (0) (seconds)	0.013459429	0.0	0.013459429	0.0	0.0
+libc-bench b_string_strstr ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac") (seconds)	0.013963025	0.0	0.013963025	0.0	0.0
+libc-bench b_string_strstr ("aaaaaaaaaaaaaaaaaaaaaaaaac") (seconds)	0.011749838	0.0	0.011749838	0.0	0.0
+libc-bench b_string_strstr ("aaaaaaaaaaaaaacccccccccccc") (seconds)	0.011944437	0.0	0.011944437	0.0	0.0
+libc-bench b_string_strstr ("abcdefghijklmnopqrstuvwxyz") (seconds)	0.011402239	0.0	0.011402239	0.0	0.0
+libc-bench b_string_strstr ("azbycxdwevfugthsirjqkplomn") (seconds)	0.020868089	0.0	0.020868089	0.0	0.0
+libc-bench b_utf8_bigbuf (0) (seconds)	0.036977802	0.0	0.036977802	0.0	0.0
+libc-bench b_utf8_onebyone (0) (seconds)	0.109599811	0.0	0.109599811	0.0	0.0
+总分		0.0		0.0	0.0
+
+libctest-musl
+测试点	rv	la	总分
+pass	score	pass	score
+libctest dynamic argv	0	0	0	0	0
+libctest dynamic basename	0	0	0	0	0
+libctest dynamic clocale_mbfuncs	0	0	0	0	0
+libctest dynamic clock_gettime	0	0	0	0	0
+libctest dynamic crypt	0	0	0	0	0
+libctest dynamic daemon_failure	0	0	0	0	0
+libctest dynamic dirname	0	0	0	0	0
+libctest dynamic dlopen	0	0	0	0	0
+libctest dynamic dn_expand_empty	0	0	0	0	0
+libctest dynamic dn_expand_ptr_0	0	0	0	0	0
+libctest dynamic env	0	0	0	0	0
+libctest dynamic fdopen	0	0	0	0	0
+libctest dynamic fflush_exit	0	0	0	0	0
+libctest dynamic fgets_eof	0	0	0	0	0
+libctest dynamic fgetwc_buffering	0	0	0	0	0
+libctest dynamic fnmatch	0	0	0	0	0
+libctest dynamic fpclassify_invalid_ld80	0	0	0	0	0
+libctest dynamic fscanf	0	0	0	0	0
+libctest dynamic ftello_unflushed_append	0	0	0	0	0
+libctest dynamic fwscanf	0	0	0	0	0
+libctest dynamic getpwnam_r_crash	0	0	0	0	0
+libctest dynamic getpwnam_r_errno	0	0	0	0	0
+libctest dynamic iconv_open	0	0	0	0	0
+libctest dynamic iconv_roundtrips	0	0	0	0	0
+libctest dynamic inet_ntop_v4mapped	0	0	0	0	0
+libctest dynamic inet_pton	0	0	0	0	0
+libctest dynamic inet_pton_empty_last_field	0	0	0	0	0
+libctest dynamic iswspace_null	0	0	0	0	0
+libctest dynamic lrand48_signextend	0	0	0	0	0
+libctest dynamic lseek_large	0	0	0	0	0
+libctest dynamic malloc_0	0	0	0	0	0
+libctest dynamic mbc	0	0	0	0	0
+libctest dynamic mbsrtowcs_overflow	0	0	0	0	0
+libctest dynamic memmem_oob	0	0	0	0	0
+libctest dynamic memmem_oob_read	0	0	0	0	0
+libctest dynamic memstream	0	0	0	0	0
+libctest dynamic mkdtemp_failure	0	0	0	0	0
+libctest dynamic mkstemp_failure	0	0	0	0	0
+libctest dynamic printf_1e9_oob	0	0	0	0	0
+libctest dynamic printf_fmt_g_round	0	0	0	0	0
+libctest dynamic printf_fmt_g_zeros	0	0	0	0	0
+libctest dynamic printf_fmt_n	0	0	0	0	0
+libctest dynamic pthread_cancel	0	0	0	0	0
+libctest dynamic pthread_cancel_points	0	0	0	0	0
+libctest dynamic pthread_cond	0	0	0	0	0
+libctest dynamic pthread_cond_smasher	0	0	0	0	0
+libctest dynamic pthread_condattr_setclock	0	0	0	0	0
+libctest dynamic pthread_exit_cancel	0	0	0	0	0
+libctest dynamic pthread_once_deadlock	0	0	0	0	0
+libctest dynamic pthread_robust_detach	0	0	0	0	0
+libctest dynamic pthread_rwlock_ebusy	0	0	0	0	0
+libctest dynamic pthread_tsd	0	0	0	0	0
+libctest dynamic putenv_doublefree	0	0	0	0	0
+libctest dynamic qsort	0	0	0	0	0
+libctest dynamic random	0	0	0	0	0
+libctest dynamic regex_backref_0	0	0	0	0	0
+libctest dynamic regex_bracket_icase	0	0	0	0	0
+libctest dynamic regex_ere_backref	0	0	0	0	0
+libctest dynamic regex_escaped_high_byte	0	0	0	0	0
+libctest dynamic regex_negated_range	0	0	0	0	0
+libctest dynamic regexec_nosub	0	0	0	0	0
+libctest dynamic rewind_clear_error	0	0	0	0	0
+libctest dynamic rlimit_open_files	0	0	0	0	0
+libctest dynamic scanf_bytes_consumed	0	0	0	0	0
+libctest dynamic scanf_match_literal_eof	0	0	0	0	0
+libctest dynamic scanf_nullbyte_char	0	0	0	0	0
+libctest dynamic search_hsearch	0	0	0	0	0
+libctest dynamic search_insque	0	0	0	0	0
+libctest dynamic search_lsearch	0	0	0	0	0
+libctest dynamic search_tsearch	0	0	0	0	0
+libctest dynamic sem_init	0	0	0	0	0
+libctest dynamic setjmp	0	0	0	0	0
+libctest dynamic setvbuf_unget	0	0	0	0	0
+libctest dynamic sigprocmask_internal	0	0	0	0	0
+libctest dynamic snprintf	0	0	0	0	0
+libctest dynamic socket	0	0	0	0	0
+libctest dynamic sscanf	0	0	0	0	0
+libctest dynamic sscanf_eof	0	0	0	0	0
+libctest dynamic sscanf_long	0	0	0	0	0
+libctest dynamic stat	0	0	0	0	0
+libctest dynamic statvfs	0	0	0	0	0
+libctest dynamic strftime	0	0	0	0	0
+libctest dynamic string	0	0	0	0	0
+libctest dynamic string_memcpy	0	0	0	0	0
+libctest dynamic string_memmem	0	0	0	0	0
+libctest dynamic string_memset	0	0	0	0	0
+libctest dynamic string_strchr	0	0	0	0	0
+libctest dynamic string_strcspn	0	0	0	0	0
+libctest dynamic string_strstr	0	0	0	0	0
+libctest dynamic strptime	0	0	0	0	0
+libctest dynamic strtod	0	0	0	0	0
+libctest dynamic strtod_simple	0	0	0	0	0
+libctest dynamic strtof	0	0	0	0	0
+libctest dynamic strtol	0	0	0	0	0
+libctest dynamic strtold	0	0	0	0	0
+libctest dynamic strverscmp	0	0	0	0	0
+libctest dynamic swprintf	0	0	0	0	0
+libctest dynamic syscall_sign_extend	0	0	0	0	0
+libctest dynamic tgmath	0	0	0	0	0
+libctest dynamic time	0	0	0	0	0
+libctest dynamic tls_get_new_dtv	0	0	0	0	0
+libctest dynamic tls_init	0	0	0	0	0
+libctest dynamic tls_local_exec	0	0	0	0	0
+libctest dynamic udiv	0	0	0	0	0
+libctest dynamic ungetc	0	0	0	0	0
+libctest dynamic uselocale_0	0	0	0	0	0
+libctest dynamic utime	0	0	0	0	0
+libctest dynamic wcsncpy_read_overflow	0	0	0	0	0
+libctest dynamic wcsstr	0	0	0	0	0
+libctest dynamic wcsstr_false_negative	0	0	0	0	0
+libctest dynamic wcstol	0	0	0	0	0
+libctest static argv	0	0	0	0	0
+libctest static basename	0	0	0	0	0
+libctest static clocale_mbfuncs	0	0	0	0	0
+libctest static clock_gettime	0	0	0	0	0
+libctest static crypt	0	0	0	0	0
+libctest static daemon_failure	0	0	0	0	0
+libctest static dirname	0	0	0	0	0
+libctest static dn_expand_empty	0	0	0	0	0
+libctest static dn_expand_ptr_0	0	0	0	0	0
+libctest static env	0	0	0	0	0
+libctest static fdopen	0	0	0	0	0
+libctest static fflush_exit	0	0	0	0	0
+libctest static fgets_eof	0	0	0	0	0
+libctest static fgetwc_buffering	0	0	0	0	0
+libctest static fnmatch	0	0	0	0	0
+libctest static fpclassify_invalid_ld80	0	0	0	0	0
+libctest static fscanf	0	0	0	0	0
+libctest static ftello_unflushed_append	0	0	0	0	0
+libctest static fwscanf	0	0	0	0	0
+libctest static getpwnam_r_crash	0	0	0	0	0
+libctest static getpwnam_r_errno	0	0	0	0	0
+libctest static iconv_open	0	0	0	0	0
+libctest static iconv_roundtrips	0	0	0	0	0
+libctest static inet_ntop_v4mapped	0	0	0	0	0
+libctest static inet_pton	0	0	0	0	0
+libctest static inet_pton_empty_last_field	0	0	0	0	0
+libctest static iswspace_null	0	0	0	0	0
+libctest static lrand48_signextend	0	0	0	0	0
+libctest static lseek_large	0	0	0	0	0
+libctest static malloc_0	0	0	0	0	0
+libctest static mbc	0	0	0	0	0
+libctest static mbsrtowcs_overflow	0	0	0	0	0
+libctest static memmem_oob	0	0	0	0	0
+libctest static memmem_oob_read	0	0	0	0	0
+libctest static memstream	0	0	0	0	0
+libctest static mkdtemp_failure	0	0	0	0	0
+libctest static mkstemp_failure	0	0	0	0	0
+libctest static pleval	0	0	0	0	0
+libctest static printf_1e9_oob	0	0	0	0	0
+libctest static printf_fmt_g_round	0	0	0	0	0
+libctest static printf_fmt_g_zeros	0	0	0	0	0
+libctest static printf_fmt_n	0	0	0	0	0
+libctest static pthread_cancel	0	0	0	0	0
+libctest static pthread_cancel_points	0	0	0	0	0
+libctest static pthread_cancel_sem_wait	0	0	0	0	0
+libctest static pthread_cond	0	0	0	0	0
+libctest static pthread_cond_smasher	0	0	0	0	0
+libctest static pthread_condattr_setclock	0	0	0	0	0
+libctest static pthread_exit_cancel	0	0	0	0	0
+libctest static pthread_once_deadlock	0	0	0	0	0
+libctest static pthread_robust_detach	0	0	0	0	0
+libctest static pthread_rwlock_ebusy	0	0	0	0	0
+libctest static pthread_tsd	0	0	0	0	0
+libctest static putenv_doublefree	0	0	0	0	0
+libctest static qsort	0	0	0	0	0
+libctest static random	0	0	0	0	0
+libctest static regex_backref_0	0	0	0	0	0
+libctest static regex_bracket_icase	0	0	0	0	0
+libctest static regex_ere_backref	0	0	0	0	0
+libctest static regex_escaped_high_byte	0	0	0	0	0
+libctest static regex_negated_range	0	0	0	0	0
+libctest static regexec_nosub	0	0	0	0	0
+libctest static rewind_clear_error	0	0	0	0	0
+libctest static rlimit_open_files	0	0	0	0	0
+libctest static scanf_bytes_consumed	0	0	0	0	0
+libctest static scanf_match_literal_eof	0	0	0	0	0
+libctest static scanf_nullbyte_char	0	0	0	0	0
+libctest static search_hsearch	0	0	0	0	0
+libctest static search_insque	0	0	0	0	0
+libctest static search_lsearch	0	0	0	0	0
+libctest static search_tsearch	0	0	0	0	0
+libctest static setjmp	0	0	0	0	0
+libctest static setvbuf_unget	0	0	0	0	0
+libctest static sigprocmask_internal	0	0	0	0	0
+libctest static snprintf	0	0	0	0	0
+libctest static socket	0	0	0	0	0
+libctest static sscanf	0	0	0	0	0
+libctest static sscanf_eof	0	0	0	0	0
+libctest static sscanf_long	0	0	0	0	0
+libctest static stat	0	0	0	0	0
+libctest static statvfs	0	0	0	0	0
+libctest static strftime	0	0	0	0	0
+libctest static string	0	0	0	0	0
+libctest static string_memcpy	0	0	0	0	0
+libctest static string_memmem	0	0	0	0	0
+libctest static string_memset	0	0	0	0	0
+libctest static string_strchr	0	0	0	0	0
+libctest static string_strcspn	0	0	0	0	0
+libctest static string_strstr	0	0	0	0	0
+libctest static strptime	0	0	0	0	0
+libctest static strtod	0	0	0	0	0
+libctest static strtod_simple	0	0	0	0	0
+libctest static strtof	0	0	0	0	0
+libctest static strtol	0	0	0	0	0
+libctest static strtold	0	0	0	0	0
+libctest static strverscmp	0	0	0	0	0
+libctest static swprintf	0	0	0	0	0
+libctest static syscall_sign_extend	0	0	0	0	0
+libctest static tgmath	0	0	0	0	0
+libctest static time	0	0	0	0	0
+libctest static tls_align	0	0	0	0	0
+libctest static udiv	0	0	0	0	0
+libctest static ungetc	0	0	0	0	0
+libctest static uselocale_0	0	0	0	0	0
+libctest static utime	0	0	0	0	0
+libctest static wcsncpy_read_overflow	0	0	0	0	0
+libctest static wcsstr	0	0	0	0	0
+libctest static wcsstr_false_negative	0	0	0	0	0
+libctest static wcstol	0	0	0	0	0
+总分		0		0	0
+
+lmbench-glibc
+测试点	rv	la	总分
+baseline	score	baseline	score
+lmbench Pagefaults on /var/tmp/XXX:(microseconds)	978.2374643	0.0	978.2374643	0.0	0.0
+lmbench Pipe bandwidth:(MB/sec)	127.244	0.0	127.244	0.0	0.0
+lmbench Pipe latency:(microseconds)	141.9106	0.0	141.9106	0.0	0.0
+lmbench Process fork+/bin/sh -c:(microseconds)	920010.2	0.0	920010.2	0.0	0.0
+lmbench Process fork+execve:(microseconds)	2004.3333	0.0	2004.3333	0.0	0.0
+lmbench Process fork+exit:(microseconds)	4409.188	0.0	4409.188	0.0	0.0
+lmbench Select on 100 fd's:(microseconds)	56.05561	0.0	56.05561	0.0	0.0
+lmbench Signal handler installation:(microseconds)	18.84948	0.0	18.84948	0.0	0.0
+lmbench Signal handler overhead:(microseconds)	25.89064	0.0	25.89064	0.0	0.0
+lmbench Simple fstat:(microseconds)	29.54674	0.0	29.54674	0.0	0.0
+lmbench Simple open/close:(microseconds)	501.2352	0.0	501.2352	0.0	0.0
+lmbench Simple read:(microseconds)	16.8192	0.0	16.8192	0.0	0.0
+lmbench Simple stat:(microseconds)	425.2565	0.0	425.2565	0.0	0.0
+lmbench Simple syscall:(microseconds)	9.25013	0.0	9.25013	0.0	0.0
+lmbench Simple write:(microseconds)	16.87553	0.0	16.87553	0.0	0.0
+lmbench bw_file_rd io_only	71703.7	0.0	71703.7	0.0	0.0
+lmbench bw_file_rd open2close	2637.494	0.0	2637.494	0.0	0.0
+lmbench bw_mmap_rd mmap_only	1037.403	0.0	1037.403	0.0	0.0
+lmbench bw_mmap_rd open2close	187.0208	0.0	187.0208	0.0	0.0
+lmbench context switch 16:(microseconds)	40.77077	0.0	40.77077	0.0	0.0
+lmbench context switch 24:(microseconds)	43.86385	0.0	43.86385	0.0	0.0
+lmbench context switch 2:(microseconds)	41.24	0.0	41.24	0.0	0.0
+lmbench context switch 32:(microseconds)	47.74923	0.0	47.74923	0.0	0.0
+lmbench context switch 4:(microseconds)	41.58071	0.0	41.58071	0.0	0.0
+lmbench context switch 64:(microseconds)	8703.026	0.0	8703.026	0.0	0.0
+lmbench context switch 8:(microseconds)	41.04231	0.0	41.04231	0.0	0.0
+lmbench context switch 96:(microseconds)	2952.14	0.0	2952.14	0.0	0.0
+lmbench fs latency 0k create	24573	0.0	24573	0.0	0.0
+lmbench fs latency 0k remove	30703	0.0	30703	0.0	0.0
+lmbench fs latency 10k create	11723	0.0	11723	0.0	0.0
+lmbench fs latency 10k remove	23688	0.0	23688	0.0	0.0
+lmbench fs latency 1k create	15130	0.0	15130	0.0	0.0
+lmbench fs latency 1k remove	255558	0.0	255558	0.0	0.0
+lmbench fs latency 4k create	13265	0.0	13265	0.0	0.0
+lmbench fs latency 4k remove	126595	0.0	126595	0.0	0.0
+lmbench lat_mmap:(microseconds)	4109.0	0.0	4109.0	0.0	0.0
+总分		0.0		0.0	0.0
+
+lmbench-musl
+测试点	rv	la	总分
+baseline	score	baseline	score
+lmbench Pagefaults on /var/tmp/XXX:(microseconds)	978.2374643	0.0	978.2374643	0.0	0.0
+lmbench Pipe bandwidth:(MB/sec)	127.244	0.0	127.244	0.0	0.0
+lmbench Pipe latency:(microseconds)	141.9106	0.0	141.9106	0.0	0.0
+lmbench Process fork+/bin/sh -c:(microseconds)	920010.2	0.0	920010.2	0.0	0.0
+lmbench Process fork+execve:(microseconds)	2004.3333	0.0	2004.3333	0.0	0.0
+lmbench Process fork+exit:(microseconds)	4409.188	0.0	4409.188	0.0	0.0
+lmbench Select on 100 fd's:(microseconds)	56.05561	0.0	56.05561	0.0	0.0
+lmbench Signal handler installation:(microseconds)	18.84948	0.0	18.84948	0.0	0.0
+lmbench Signal handler overhead:(microseconds)	25.89064	0.0	25.89064	0.0	0.0
+lmbench Simple fstat:(microseconds)	29.54674	0.0	29.54674	0.0	0.0
+lmbench Simple open/close:(microseconds)	501.2352	0.0	501.2352	0.0	0.0
+lmbench Simple read:(microseconds)	16.8192	0.0	16.8192	0.0	0.0
+lmbench Simple stat:(microseconds)	425.2565	0.0	425.2565	0.0	0.0
+lmbench Simple syscall:(microseconds)	9.25013	0.0	9.25013	0.0	0.0
+lmbench Simple write:(microseconds)	16.87553	0.0	16.87553	0.0	0.0
+lmbench bw_file_rd io_only	71703.7	0.0	71703.7	0.0	0.0
+lmbench bw_file_rd open2close	2637.494	0.0	2637.494	0.0	0.0
+lmbench bw_mmap_rd mmap_only	1037.403	0.0	1037.403	0.0	0.0
+lmbench bw_mmap_rd open2close	187.0208	0.0	187.0208	0.0	0.0
+lmbench context switch 16:(microseconds)	40.77077	0.0	40.77077	0.0	0.0
+lmbench context switch 24:(microseconds)	43.86385	0.0	43.86385	0.0	0.0
+lmbench context switch 2:(microseconds)	41.24	0.0	41.24	0.0	0.0
+lmbench context switch 32:(microseconds)	47.74923	0.0	47.74923	0.0	0.0
+lmbench context switch 4:(microseconds)	41.58071	0.0	41.58071	0.0	0.0
+lmbench context switch 64:(microseconds)	8703.026	0.0	8703.026	0.0	0.0
+lmbench context switch 8:(microseconds)	41.04231	0.0	41.04231	0.0	0.0
+lmbench context switch 96:(microseconds)	2952.14	0.0	2952.14	0.0	0.0
+lmbench fs latency 0k create	24573	0.0	24573	0.0	0.0
+lmbench fs latency 0k remove	30703	0.0	30703	0.0	0.0
+lmbench fs latency 10k create	11723	0.0	11723	0.0	0.0
+lmbench fs latency 10k remove	23688	0.0	23688	0.0	0.0
+lmbench fs latency 1k create	15130	0.0	15130	0.0	0.0
+lmbench fs latency 1k remove	255558	0.0	255558	0.0	0.0
+lmbench fs latency 4k create	13265	0.0	13265	0.0	0.0
+lmbench fs latency 4k remove	126595	0.0	126595	0.0	0.0
+lmbench lat_mmap:(microseconds)	4109.0	0.0	4109.0	0.0	0.0
+总分		0.0		0.0	0.0
+
+ltp-glibc
+测试点	rv	la	总分
+pass	all	score	pass	all	score
+abort01	0	1	0	0	1	0	0
+accept01	5	5	5	5	5	5	10
+accept02	1	1	1	1	1	1	2
+accept03	11	23	11	11	23	11	22
+accept4_01	8	9	8	8	9	8	16
+access01	199	199	199	199	199	199	398
+access02	16	16	16	16	16	16	32
+access03	8	8	8	8	8	8	16
+access04	12	12	12	12	12	12	24
+acct01	9	9	9	9	9	9	18
+acct02	0	1	0	0	1	0	0
+add_key01	8	8	8	8	8	8	16
+add_key02	3	9	3	3	9	3	6
+add_key03	1	1	1	1	1	1	2
+add_key04	1	1	1	1	1	1	2
+add_key05	0	2	0	-	-	-	0
+adjtimex01	2	2	2	2	2	2	4
+adjtimex02	7	8	7	7	8	7	14
+adjtimex03	1	1	1	1	1	1	2
+alarm02	6	6	6	6	6	6	12
+alarm03	2	2	2	2	2	2	4
+alarm05	3	3	3	3	3	3	6
+alarm06	2	2	2	2	2	2	4
+alarm07	2	2	2	2	2	2	4
+arch_prctl01	0	0	0	-	-	-	0
+bind01	7	7	7	7	7	7	14
+bind02	1	1	1	1	1	1	2
+bind03	3	3	3	3	3	3	6
+bind04	10	11	10	10	11	10	20
+bind05	8	9	8	8	9	8	16
+bind06	0	0	0	-	-	-	0
+brk01	2	2	2	2	2	2	4
+brk02	2	2	2	2	2	2	4
+cacheflush01	0	0	0	-	-	-	0
+capget01	6	6	6	6	6	6	12
+capget02	5	5	5	5	5	5	10
+capset01	3	3	3	3	3	3	6
+capset02	6	6	6	6	6	6	12
+capset03	1	1	1	1	1	1	2
+capset04	1	1	1	1	1	1	2
+chdir01	64	64	64	64	64	64	128
+chdir01A	0	0	0	0	0	0	0
+chdir04	3	3	3	3	3	3	6
+chmod01	32	32	32	32	32	32	64
+chmod01A	0	0	0	0	0	0	0
+chmod03	4	4	4	4	4	4	8
+chmod05	1	1	1	1	1	1	2
+chmod06	9	9	9	9	9	9	18
+chmod07	1	1	1	1	1	1	2
+chown01	1	1	1	1	1	1	2
+chown02	2	2	2	2	2	2	4
+chown03	1	1	1	1	1	1	2
+chown04	8	8	8	8	8	8	16
+chown05	6	6	6	6	6	6	12
+chroot01	1	1	1	1	1	1	2
+chroot02	2	2	2	2	2	2	4
+chroot03	5	5	5	5	5	5	10
+chroot04	1	1	1	1	1	1	2
+clock_adjtime01	9	9	9	9	9	9	18
+clock_adjtime02	6	6	6	6	6	6	12
+clock_getres01	44	44	44	44	44	44	88
+clock_gettime01	16	16	16	16	16	16	32
+clock_gettime02	10	10	10	10	10	10	20
+clock_gettime03	24	24	24	24	24	24	48
+clock_gettime04	6	6	6	6	6	6	12
+clock_nanosleep01	12	14	12	12	14	12	24
+clock_nanosleep02	7	7	7	7	7	7	14
+clock_nanosleep03	2	2	2	2	2	2	4
+clock_nanosleep04	4	4	4	4	4	4	8
+clock_settime01	4	4	4	4	4	4	8
+clock_settime02	12	12	12	12	12	12	24
+clock_settime03	1	1	1	1	1	1	2
+clone01	2	2	2	2	2	2	4
+clone02	0	0	0	0	0	0	0
+clone03	1	1	1	1	1	1	2
+clone04	1	1	1	1	1	1	2
+clone05	1	1	1	1	1	1	2
+clone06	1	1	1	1	1	1	2
+clone07	1	1	1	1	1	1	2
+clone08	5	5	5	5	5	5	10
+clone09	1	1	1	1	1	1	2
+clone301	7	7	7	7	7	7	14
+clone302	12	12	12	12	12	12	24
+clone303	1	1	1	1	1	1	2
+close01	3	3	3	3	3	3	6
+close02	1	1	1	1	1	1	2
+close_range01	16	16	16	16	16	16	32
+close_range02	11	11	11	11	11	11	22
+confstr01	34	34	34	34	34	34	68
+connect01	0	0	0	0	0	0	0
+copy_file_range01	0	0	0	-	-	-	0
+copy_file_range02	0	0	0	-	-	-	0
+copy_file_range03	0	0	0	-	-	-	0
+creat01	6	6	6	6	6	6	12
+creat03	1	1	1	1	1	1	2
+creat04	2	2	2	2	2	2	4
+creat05	1	1	1	1	1	1	2
+creat06	8	8	8	8	8	8	16
+creat07	1	1	1	1	1	1	2
+creat08	9	9	9	9	9	9	18
+creat09	24	24	24	24	24	24	48
+delete_module02	5	5	5	5	5	5	10
+dirtyc0w	0	0	0	-	-	-	0
+dirtyc0w_shmem	0	0	0	-	-	-	0
+dirtypipe	0	0	0	-	-	-	0
+dup01	2	2	2	2	2	2	4
+dup02	2	2	2	2	2	2	4
+dup03	1	1	1	1	1	1	2
+dup04	2	2	2	2	2	2	4
+dup05	1	1	1	1	1	1	2
+dup06	1	1	1	1	1	1	2
+dup07	3	3	3	3	3	3	6
+dup201	4	4	4	4	4	4	8
+dup202	6	6	6	6	6	6	12
+dup203	4	4	4	4	4	4	8
+dup204	4	4	4	4	4	4	8
+dup205	1	1	1	1	1	1	2
+dup206	1	1	1	1	1	1	2
+dup207	2	2	2	2	2	2	4
+dup3_01	2	2	2	2	2	2	4
+dup3_02	3	3	3	3	3	3	6
+epoll01	0	0	0	0	0	0	0
+epoll_create01	2	3	2	2	3	2	4
+epoll_create02	2	3	2	2	3	2	4
+epoll_create1_01	2	2	2	2	2	2	4
+epoll_create1_02	2	2	2	2	2	2	4
+epoll_ctl01	3	3	3	3	3	3	6
+epoll_ctl02	9	9	9	9	9	9	18
+epoll_ctl03	256	256	256	256	256	256	512
+epoll_ctl04	1	1	1	1	1	1	2
+epoll_ctl05	1	1	1	1	1	1	2
+epoll_pwait01	4	4	4	4	4	4	8
+epoll_pwait02	2	2	2	2	2	2	4
+epoll_pwait03	14	14	14	14	14	14	28
+epoll_pwait04	2	2	2	2	2	2	4
+epoll_pwait05	3	3	3	3	3	3	6
+epoll_wait01	3	3	3	3	3	3	6
+epoll_wait02	7	7	7	7	7	7	14
+epoll_wait03	5	5	5	5	5	5	10
+epoll_wait04	0	1	0	0	1	0	0
+epoll_wait05	1	1	1	1	1	1	2
+epoll_wait06	9	9	9	9	9	9	18
+epoll_wait07	5	5	5	5	5	5	10
+eventfd01	4	4	4	4	4	4	8
+eventfd02	5	5	5	5	5	5	10
+eventfd03	3	3	3	3	3	3	6
+eventfd04	3	3	3	3	3	3	6
+eventfd05	2	2	2	2	2	2	4
+eventfd06	0	0	0	-	-	-	0
+eventfd2_01	2	2	2	2	2	2	4
+eventfd2_02	2	2	2	2	2	2	4
+eventfd2_03	2	2	2	2	2	2	4
+execl01	1	1	1	1	1	1	2
+execle01	1	1	1	-	-	-	1
+execlp01	1	1	1	1	1	1	2
+execv01	1	1	1	1	1	1	2
+execve01	1	1	1	-	-	-	1
+execve02	1	1	1	1	1	1	2
+execve03	4	4	4	4	4	4	8
+execve04	1	1	1	1	1	1	2
+execve05	160	160	160	-	-	-	160
+execve06	1	1	1	-	-	-	1
+execveat01	4	4	4	-	-	-	4
+execveat02	4	4	4	0	0	0	4
+execveat03	1	1	1	0	0	0	1
+execvp01	1	1	1	-	-	-	1
+exit01	0	0	0	0	0	0	0
+exit02	1	1	1	0	0	0	1
+exit_group01	1	1	1	0	0	0	1
+faccessat01	3	3	3	0	0	0	3
+faccessat02	2	2	2	0	0	0	2
+faccessat201	7	7	7	0	0	0	7
+faccessat202	6	6	6	0	0	0	6
+fallocate01	0	0	0	0	0	0	0
+fallocate02	0	0	0	0	0	0	0
+fallocate03	8	8	8	0	0	0	8
+fallocate04	4	8	4	0	0	0	4
+fallocate05	10	13	10	0	0	0	10
+fallocate06	20	30	20	0	0	0	20
+fanotify12	0	0	0	-	-	-	0
+fanotify15	0	1	0	-	-	-	0
+fanotify21	0	0	0	-	-	-	0
+fanotify22	0	0	0	-	-	-	0
+fanotify23	0	0	0	-	-	-	0
+fchdir01	0	1	0	0	0	0	0
+fchdir02	0	1	0	0	0	0	0
+fchdir03	0	1	0	0	0	0	0
+fchmod01	8	8	8	0	0	0	8
+fchmod02	1	1	1	0	0	0	1
+fchmod03	1	1	1	0	0	0	1
+fchmod04	1	1	1	0	0	0	1
+fchmod05	1	1	1	0	0	0	1
+fchmod06	2	3	2	0	0	0	2
+fchmodat01	6	6	6	0	0	0	6
+fchmodat02	4	6	4	0	0	0	4
+fchown01	1	1	1	0	0	0	1
+fchown01_16	-	-	-	0	0	0	0
+fchown02	2	2	2	0	0	0	2
+fchown02_16	-	-	-	0	0	0	0
+fchown03	1	1	1	0	0	0	1
+fchown03_16	-	-	-	0	0	0	0
+fchown04	3	3	3	0	0	0	3
+fchown04_16	-	-	-	0	0	0	0
+fchown05	6	6	6	0	0	0	6
+fchown05_16	-	-	-	0	0	0	0
+fchownat01	0	0	0	0	0	0	0
+fchownat02	0	0	0	0	0	0	0
+fcntl01	0	0	0	0	0	0	0
+fcntl01_64	0	0	0	0	0	0	0
+fcntl02	6	6	6	0	0	0	6
+fcntl02_64	6	6	6	0	0	0	6
+fcntl03	1	1	1	0	0	0	1
+fcntl03_64	1	1	1	0	0	0	1
+fcntl04	1	1	1	0	0	0	1
+fcntl04_64	1	1	1	0	0	0	1
+fcntl05	5	6	5	0	0	0	5
+fcntl05_64	5	6	5	0	0	0	5
+fcntl07	0	0	0	0	0	0	0
+fcntl07_64	0	0	0	0	0	0	0
+fcntl08	1	1	1	0	0	0	1
+fcntl08_64	1	1	1	0	0	0	1
+fcntl09	0	0	0	0	0	0	0
+fcntl09_64	0	0	0	0	0	0	0
+fcntl10	0	0	0	0	0	0	0
+fcntl10_64	0	0	0	0	0	0	0
+fcntl11	0	0	0	0	0	0	0
+fcntl11_64	0	0	0	0	0	0	0
+fcntl12	1	1	1	0	0	0	1
+fcntl12_64	1	1	1	0	0	0	1
+fcntl13	4	4	4	0	0	0	4
+fcntl13_64	4	4	4	0	0	0	4
+fcntl14	0	0	0	0	0	0	0
+fcntl14_64	0	0	0	0	0	0	0
+fcntl15	12	12	12	0	0	0	12
+fcntl15_64	12	12	12	0	0	0	12
+fcntl16	0	0	0	0	0	0	0
+fcntl16_64	0	0	0	0	0	0	0
+fcntl17	0	0	0	0	0	0	0
+fcntl17_64	0	0	0	0	0	0	0
+fcntl18	0	0	0	0	0	0	0
+fcntl18_64	0	0	0	0	0	0	0
+fcntl19	0	0	0	0	0	0	0
+fcntl19_64	0	0	0	0	0	0	0
+fcntl20	0	0	0	0	0	0	0
+fcntl20_64	0	0	0	0	0	0	0
+fcntl21	0	0	0	0	0	0	0
+fcntl21_64	0	0	0	0	0	0	0
+fcntl22	0	0	0	0	0	0	0
+fcntl22_64	0	0	0	0	0	0	0
+fcntl23	0	0	0	0	0	0	0
+fcntl23_64	0	0	0	0	0	0	0
+fcntl24	0	0	0	0	0	0	0
+fcntl24_64	0	0	0	0	0	0	0
+fcntl25	0	0	0	0	0	0	0
+fcntl25_64	0	0	0	0	0	0	0
+fcntl26	0	0	0	0	0	0	0
+fcntl26_64	0	0	0	0	0	0	0
+fcntl27	2	2	2	0	0	0	2
+fcntl27_64	2	2	2	0	0	0	2
+fcntl29	3	3	3	0	0	0	3
+fcntl29_64	3	3	3	0	0	0	3
+fcntl30	4	4	4	0	0	0	4
+fcntl30_64	4	4	4	0	0	0	4
+fcntl31	0	0	0	0	0	0	0
+fcntl31_64	0	0	0	0	0	0	0
+fcntl32	0	0	0	0	0	0	0
+fcntl32_64	0	0	0	0	0	0	0
+fcntl33	7	7	7	0	0	0	7
+fcntl33_64	7	7	7	0	0	0	7
+fcntl34	1	1	1	0	0	0	1
+fcntl34_64	1	1	1	0	0	0	1
+fcntl35	0	2	0	0	0	0	0
+fcntl35_64	0	2	0	0	0	0	0
+fcntl36	7	7	7	0	0	0	7
+fcntl36_64	7	7	7	0	0	0	7
+fcntl37	3	3	3	0	0	0	3
+fcntl37_64	3	3	3	0	0	0	3
+fcntl38	0	0	0	0	0	0	0
+fcntl38_64	0	0	0	0	0	0	0
+fcntl39	0	0	0	0	0	0	0
+fcntl39_64	0	0	0	0	0	0	0
+fdatasync01	0	0	0	0	0	0	0
+fdatasync02	0	0	0	0	0	0	0
+fdatasync03	-	-	-	0	0	0	0
+fgetxattr01	20	20	20	0	0	0	20
+fgetxattr02	13	13	13	0	0	0	13
+fgetxattr03	1	1	1	0	0	0	1
+finit_module01	-	-	-	0	0	0	0
+finit_module02	-	-	-	0	0	0	0
+flistxattr01	1	1	1	0	0	0	1
+flistxattr02	2	2	2	0	0	0	2
+flistxattr03	2	2	2	0	0	0	2
+flock01	3	3	3	0	0	0	3
+flock02	3	3	3	0	0	0	3
+flock03	3	3	3	0	0	0	3
+flock04	6	6	6	0	0	0	6
+flock06	4	4	4	0	0	0	4
+fmtmsg01	0	0	0	0	0	0	0
+fork01	2	2	2	0	0	0	2
+fork03	1	1	1	0	0	0	1
+fork04	3	3	3	0	0	0	3
+fork05	0	0	0	0	0	0	0
+fork06	1	1	1	0	0	0	1
+fork07	1	1	1	0	0	0	1
+fork08	1	1	1	0	0	0	1
+fork09	0	0	0	0	0	0	0
+fork10	2	2	2	0	0	0	2
+fork11	1	1	1	0	0	0	1
+fork13	1	1	1	0	0	0	1
+fork14	-	-	-	0	0	0	0
+fpathconf01	9	9	9	0	0	0	9
+fremovexattr01	4	4	4	0	0	0	4
+fremovexattr02	12	12	12	0	0	0	12
+fsconfig01	-	-	-	0	0	0	0
+fsconfig02	-	-	-	0	0	0	0
+fsconfig03	-	-	-	0	0	0	0
+fsetxattr01	36	36	36	0	0	0	36
+fsetxattr02	0	0	0	0	0	0	0
+fsmount01	-	-	-	0	0	0	0
+fsmount02	-	-	-	0	0	0	0
+fsopen01	-	-	-	0	0	0	0
+fsopen02	-	-	-	0	0	0	0
+fspick01	-	-	-	0	0	0	0
+fspick02	-	-	-	0	0	0	0
+fstat02	0	1	0	0	0	0	0
+fstat02_64	0	1	0	0	0	0	0
+fstat03	2	2	2	0	0	0	2
+fstat03_64	2	2	2	0	0	0	2
+fstatat01	0	0	0	0	0	0	0
+fstatfs01	8	8	8	0	0	0	8
+fstatfs01_64	8	8	8	0	0	0	8
+fstatfs02	2	2	2	0	0	0	2
+fstatfs02_64	2	2	2	0	0	0	2
+fsync01	40	40	40	0	0	0	40
+fsync02	1	1	1	0	0	0	1
+fsync03	2	5	2	0	0	0	2
+fsync04	-	-	-	0	0	0	0
+ftruncate01	2	2	2	0	0	0	2
+ftruncate01_64	2	2	2	0	0	0	2
+ftruncate03	4	4	4	0	0	0	4
+ftruncate03_64	4	4	4	0	0	0	4
+ftruncate04	0	0	0	0	0	0	0
+ftruncate04_64	0	0	0	0	0	0	0
+futex_cmp_requeue01	0	0	0	-	-	-	0
+futex_cmp_requeue02	0	0	0	-	-	-	0
+futex_wait01	0	0	0	-	-	-	0
+futex_wait02	0	0	0	-	-	-	0
+futex_wait03	0	0	0	-	-	-	0
+futex_wait04	0	0	0	-	-	-	0
+futex_wait05	0	0	0	-	-	-	0
+futex_wait_bitset01	0	0	0	-	-	-	0
+futex_waitv01	0	0	0	-	-	-	0
+futex_waitv02	0	0	0	-	-	-	0
+futex_waitv03	0	0	0	-	-	-	0
+futex_wake01	0	0	0	-	-	-	0
+futex_wake02	0	0	0	-	-	-	0
+futex_wake03	0	0	0	-	-	-	0
+futex_wake04	0	0	0	-	-	-	0
+futimesat01	0	0	0	0	0	0	0
+get_mempolicy01	0	0	0	0	0	0	0
+get_mempolicy02	0	0	0	0	0	0	0
+get_robust_list01	0	0	0	0	0	0	0
+getcontext01	2	2	2	0	0	0	2
+getcpu01	1	1	1	0	0	0	1
+getcwd01	4	5	4	0	0	0	4
+getcwd02	3	3	3	0	0	0	3
+getcwd03	1	1	1	0	0	0	1
+getcwd04	0	0	0	0	0	0	0
+getdents01	0	4	0	0	0	0	0
+getdents02	8	10	8	0	0	0	8
+getdomainname01	1	1	1	0	0	0	1
+getegid01	1	1	1	0	0	0	1
+getegid01_16	1	1	1	0	0	0	1
+getegid02	1	1	1	0	0	0	1
+getegid02_16	1	1	1	0	0	0	1
+geteuid01	1	1	1	0	0	0	1
+geteuid01_16	-	-	-	0	0	0	0
+geteuid02	2	2	2	0	0	0	2
+geteuid02_16	-	-	-	0	0	0	0
+getgid01	1	1	1	0	0	0	1
+getgid01_16	-	-	-	0	0	0	0
+getgid03	1	1	1	0	0	0	1
+getgid03_16	-	-	-	0	0	0	0
+getgroups01	0	0	0	0	0	0	0
+getgroups01_16	0	0	0	0	0	0	0
+getgroups03	0	0	0	0	0	0	0
+getgroups03_16	0	0	0	0	0	0	0
+gethostbyname_r01	1	1	1	0	0	0	1
+gethostid01	5	5	5	0	0	0	5
+gethostname01	1	1	1	0	0	0	1
+gethostname02	1	1	1	0	0	0	1
+getitimer01	30	30	30	0	0	0	30
+getitimer02	3	3	3	0	0	0	3
+getpagesize01	1	1	1	0	0	0	1
+getpeername01	6	7	6	0	0	0	6
+getpgid01	7	8	7	0	0	0	7
+getpgid02	2	2	2	0	0	0	2
+getpgrp01	2	2	2	0	0	0	2
+getpid01	0	100	0	0	0	0	0
+getpid02	2	2	2	0	0	0	2
+getppid01	0	1	0	0	0	0	0
+getppid02	1	1	1	0	0	0	1
+getpriority01	1	3	1	0	0	0	1
+getpriority02	4	4	4	0	0	0	4
+getrandom01	4	4	4	0	0	0	4
+getrandom02	4	4	4	0	0	0	4
+getrandom03	9	9	9	0	0	0	9
+getrandom04	1	1	1	0	0	0	1
+getrandom05	1	2	1	0	0	0	1
+getresgid01	0	0	0	0	0	0	0
+getresgid01_16	0	0	0	0	0	0	0
+getresgid02	0	0	0	0	0	0	0
+getresgid02_16	0	0	0	0	0	0	0
+getresgid03	0	0	0	0	0	0	0
+getresgid03_16	0	0	0	0	0	0	0
+getresuid01	0	0	0	0	0	0	0
+getresuid01_16	0	0	0	0	0	0	0
+getresuid02	0	0	0	0	0	0	0
+getresuid02_16	0	0	0	0	0	0	0
+getresuid03	0	0	0	0	0	0	0
+getresuid03_16	0	0	0	0	0	0	0
+getrlimit01	16	16	16	0	0	0	16
+getrlimit02	2	2	2	0	0	0	2
+getrlimit03	0	16	0	0	0	0	0
+getrusage01	2	2	2	0	0	0	2
+getrusage02	3	4	3	0	0	0	3
+getrusage03	0	0	0	0	0	0	0
+getrusage04	0	0	0	0	0	0	0
+getsid01	1	1	1	0	0	0	1
+getsid02	1	1	1	0	0	0	1
+getsockname01	6	6	6	0	0	0	6
+getsockopt01	4	9	4	0	0	0	4
+getsockopt02	0	1	0	0	0	0	0
+gettid01	2	2	2	0	0	0	2
+gettid02	11	11	11	0	0	0	11
+gettimeofday01	2	3	2	0	0	0	2
+gettimeofday02	1	1	1	0	0	0	1
+getuid01	1	1	1	0	0	0	1
+getuid01_16	-	-	-	0	0	0	0
+getuid03	2	2	2	0	0	0	2
+getuid03_16	-	-	-	0	0	0	0
+getxattr01	4	4	4	0	0	0	4
+getxattr02	8	9	8	0	0	0	8
+getxattr03	2	2	2	-	-	-	2
+getxattr05	0	0	0	-	-	-	0
+inotify06	0	2	0	-	-	-	0
+io_cancel01	0	0	0	1	1	1	1
+io_cancel02	0	0	0	-	-	-	0
+io_destroy01	0	0	0	-	-	-	0
+io_destroy02	0	0	0	1	1	1	1
+io_getevents01	0	0	0	1	1	1	1
+io_getevents02	0	0	0	-	-	-	0
+io_pgetevents01	0	0	0	-	-	-	0
+io_pgetevents02	0	0	0	-	-	-	0
+io_setup01	0	0	0	-	-	-	0
+io_setup02	0	0	0	5	5	5	5
+io_submit01	0	0	0	-	-	-	0
+io_submit02	0	0	0	2	2	2	2
+io_submit03	0	0	0	7	7	7	7
+io_uring01	0	0	0	-	-	-	0
+io_uring02	0	0	0	-	-	-	0
+ioctl01	0	1	0	-	-	-	0
+ioctl02	0	0	0	-	-	-	0
+ioctl04	0	1	0	-	-	-	0
+ioctl05	0	1	0	-	-	-	0
+ioctl06	0	1	0	-	-	-	0
+ioctl07	0	1	0	-	-	-	0
+ioctl08	0	0	0	-	-	-	0
+ioctl09	0	0	0	-	-	-	0
+ioctl_loop01	0	0	0	-	-	-	0
+ioctl_loop02	0	0	0	-	-	-	0
+ioctl_loop03	0	0	0	-	-	-	0
+ioctl_loop04	0	0	0	-	-	-	0
+ioctl_loop05	0	0	0	-	-	-	0
+ioctl_loop06	0	0	0	-	-	-	0
+ioctl_loop07	0	0	0	-	-	-	0
+ioctl_ns01	0	2	0	-	-	-	0
+ioctl_ns02	0	2	0	-	-	-	0
+ioctl_ns03	0	2	0	-	-	-	0
+ioctl_ns04	0	2	0	-	-	-	0
+ioctl_ns05	0	3	0	0	3	0	0
+ioctl_ns06	0	2	0	-	-	-	0
+ioctl_ns07	4	4	4	4	4	4	8
+ioperm01	0	0	0	-	-	-	0
+ioperm02	0	0	0	-	-	-	0
+iopl01	0	0	0	-	-	-	0
+iopl02	0	0	0	-	-	-	0
+ioprio_get01	0	0	0	-	-	-	0
+ioprio_set01	0	0	0	-	-	-	0
+ioprio_set02	0	0	0	-	-	-	0
+ioprio_set03	0	0	0	-	-	-	0
+kcmp01	0	0	0	5	5	5	5
+kcmp02	0	0	0	6	6	6	6
+kcmp03	0	0	0	4	4	4	4
+keyctl01	0	0	0	2	2	2	2
+keyctl02	0	0	0	1	1	1	1
+keyctl03	0	0	0	1	1	1	1
+keyctl04	0	0	0	1	1	1	1
+keyctl05	0	0	0	1	3	1	1
+keyctl06	0	0	0	1	1	1	1
+keyctl07	0	0	0	2	2	2	2
+keyctl08	0	0	0	0	1	0	0
+keyctl09	0	0	0	-	-	-	0
+kill02	0	0	0	0	0	0	0
+kill03	0	0	0	3	3	3	3
+kill05	0	0	0	1	1	1	1
+kill06	0	0	0	1	1	1	1
+kill07	0	0	0	-	-	-	0
+kill08	0	0	0	-	-	-	0
+kill09	0	0	0	-	-	-	0
+kill10	0	0	0	-	-	-	0
+kill11	0	0	0	-	-	-	0
+kill12	0	0	0	-	-	-	0
+kill13	0	0	0	-	-	-	0
+lchown01	0	0	0	-	-	-	0
+lchown01_16	0	0	0	-	-	-	0
+lchown02	0	0	0	-	-	-	0
+lchown02_16	0	0	0	-	-	-	0
+lchown03	0	0	0	-	-	-	0
+lchown03_16	0	0	0	-	-	-	0
+leapsec01	1	1	1	1	1	1	2
+lgetxattr01	0	0	0	-	-	-	0
+lgetxattr02	0	0	0	-	-	-	0
+link01	0	0	0	-	-	-	0
+link02	0	0	0	-	-	-	0
+link04	0	0	0	-	-	-	0
+link05	0	0	0	-	-	-	0
+link08	0	0	0	-	-	-	0
+linkat01	0	0	0	-	-	-	0
+linkat02	0	0	0	-	-	-	0
+listen01	0	0	0	-	-	-	0
+listxattr01	0	0	0	-	-	-	0
+listxattr02	0	0	0	-	-	-	0
+listxattr03	0	0	0	-	-	-	0
+llistxattr01	0	0	0	-	-	-	0
+llistxattr02	0	0	0	-	-	-	0
+llistxattr03	0	0	0	-	-	-	0
+llseek01	0	0	0	-	-	-	0
+llseek02	0	0	0	-	-	-	0
+llseek03	0	0	0	-	-	-	0
+lremovexattr01	0	0	0	-	-	-	0
+lseek01	0	0	0	-	-	-	0
+lseek02	0	0	0	-	-	-	0
+lseek07	0	0	0	-	-	-	0
+lseek11	0	0	0	-	-	-	0
+lstat01	0	0	0	-	-	-	0
+lstat01A	0	0	0	-	-	-	0
+lstat01A_64	0	0	0	-	-	-	0
+lstat01_64	0	0	0	-	-	-	0
+lstat02	0	0	0	-	-	-	0
+lstat02_64	0	0	0	-	-	-	0
+madvise01	0	0	0	-	-	-	0
+madvise02	0	0	0	-	-	-	0
+madvise03	0	0	0	-	-	-	0
+madvise05	0	0	0	-	-	-	0
+madvise06	0	0	0	-	-	-	0
+madvise07	0	0	0	-	-	-	0
+madvise08	0	0	0	-	-	-	0
+madvise09	0	0	0	-	-	-	0
+madvise10	0	0	0	-	-	-	0
+madvise11	0	0	0	-	-	-	0
+mallinfo02	0	0	0	-	-	-	0
+mallinfo2_01	0	0	0	-	-	-	0
+mallopt01	0	0	0	-	-	-	0
+mbind01	0	0	0	-	-	-	0
+mbind02	0	0	0	-	-	-	0
+mbind03	0	0	0	-	-	-	0
+mbind04	0	0	0	-	-	-	0
+membarrier01	0	0	0	-	-	-	0
+memcmp01	0	0	0	-	-	-	0
+memcpy01	0	0	0	-	-	-	0
+memfd_create01	0	0	0	-	-	-	0
+memfd_create02	0	0	0	-	-	-	0
+memfd_create03	0	0	0	-	-	-	0
+memfd_create04	0	0	0	-	-	-	0
+memset01	0	0	0	-	-	-	0
+migrate_pages01	0	0	0	-	-	-	0
+migrate_pages02	0	0	0	-	-	-	0
+migrate_pages03	0	0	0	-	-	-	0
+mincore01	0	0	0	-	-	-	0
+mincore02	0	0	0	-	-	-	0
+mincore03	0	0	0	-	-	-	0
+mincore04	0	0	0	-	-	-	0
+mkdir02	0	0	0	-	-	-	0
+mkdir03	0	0	0	-	-	-	0
+mkdir04	0	0	0	-	-	-	0
+mkdir05	0	0	0	-	-	-	0
+mkdir09	0	0	0	-	-	-	0
+mkdirat01	0	0	0	-	-	-	0
+mkdirat02	0	0	0	-	-	-	0
+mknod01	0	0	0	-	-	-	0
+mknod02	0	0	0	-	-	-	0
+mknod03	0	0	0	-	-	-	0
+mknod04	0	0	0	-	-	-	0
+mknod05	0	0	0	-	-	-	0
+mknod06	0	0	0	-	-	-	0
+mknod07	0	0	0	-	-	-	0
+mknod08	0	0	0	-	-	-	0
+mknod09	0	0	0	-	-	-	0
+mknodat01	0	0	0	-	-	-	0
+mknodat02	0	0	0	-	-	-	0
+mlock01	0	0	0	-	-	-	0
+mlock02	0	0	0	-	-	-	0
+mlock03	0	0	0	-	-	-	0
+mlock04	0	0	0	-	-	-	0
+mlock05	0	0	0	-	-	-	0
+mlock201	0	0	0	-	-	-	0
+mlock202	0	0	0	-	-	-	0
+mlock203	0	0	0	-	-	-	0
+mlockall01	0	0	0	-	-	-	0
+mlockall02	0	0	0	-	-	-	0
+mlockall03	0	0	0	-	-	-	0
+mmap01	0	0	0	-	-	-	0
+mmap02	0	0	0	-	-	-	0
+mmap03	0	0	0	-	-	-	0
+mmap04	0	0	0	-	-	-	0
+mmap05	0	0	0	-	-	-	0
+mmap06	0	0	0	-	-	-	0
+mmap08	0	0	0	-	-	-	0
+mmap09	0	0	0	-	-	-	0
+mmap12	0	0	0	-	-	-	0
+mmap13	0	0	0	-	-	-	0
+mmap14	0	0	0	-	-	-	0
+mmap15	0	0	0	-	-	-	0
+mmap16	0	0	0	-	-	-	0
+mmap17	0	0	0	-	-	-	0
+mmap18	0	0	0	-	-	-	0
+mmap19	0	0	0	-	-	-	0
+mmap20	0	0	0	-	-	-	0
+modify_ldt01	0	0	0	-	-	-	0
+modify_ldt02	0	0	0	-	-	-	0
+modify_ldt03	0	0	0	-	-	-	0
+mount01	0	0	0	-	-	-	0
+mount02	0	0	0	-	-	-	0
+mount03	0	0	0	-	-	-	0
+mount04	0	0	0	-	-	-	0
+mount05	0	0	0	-	-	-	0
+mount06	0	0	0	-	-	-	0
+mount07	0	0	0	-	-	-	0
+mount_setattr01	0	0	0	-	-	-	0
+move_mount01	0	0	0	-	-	-	0
+move_mount02	0	0	0	-	-	-	0
+move_pages01	0	0	0	-	-	-	0
+move_pages02	0	0	0	-	-	-	0
+move_pages03	0	0	0	-	-	-	0
+move_pages04	0	0	0	-	-	-	0
+move_pages05	0	0	0	-	-	-	0
+move_pages06	0	0	0	-	-	-	0
+move_pages07	0	0	0	-	-	-	0
+move_pages09	0	0	0	-	-	-	0
+move_pages10	0	0	0	-	-	-	0
+move_pages11	0	0	0	-	-	-	0
+move_pages12	0	0	0	-	-	-	0
+mprotect01	0	0	0	-	-	-	0
+mprotect02	0	0	0	-	-	-	0
+mprotect03	0	0	0	-	-	-	0
+mprotect04	0	0	0	-	-	-	0
+mprotect05	0	0	0	-	-	-	0
+mq_notify01	0	0	0	-	-	-	0
+mq_notify02	0	0	0	-	-	-	0
+mq_notify03	0	0	0	-	-	-	0
+mq_open01	0	0	0	-	-	-	0
+mq_timedreceive01	0	0	0	-	-	-	0
+mq_timedsend01	0	0	0	-	-	-	0
+mq_unlink01	0	0	0	-	-	-	0
+mremap01	0	0	0	-	-	-	0
+mremap02	0	0	0	-	-	-	0
+mremap03	0	0	0	-	-	-	0
+mremap04	0	0	0	-	-	-	0
+mremap05	0	0	0	-	-	-	0
+mremap06	0	0	0	-	-	-	0
+msgctl01	0	0	0	-	-	-	0
+msgctl02	0	0	0	-	-	-	0
+msgctl03	0	0	0	-	-	-	0
+msgctl04	0	0	0	-	-	-	0
+msgctl05	0	0	0	-	-	-	0
+msgctl06	0	0	0	-	-	-	0
+msgctl12	0	0	0	-	-	-	0
+msgget01	0	0	0	-	-	-	0
+msgget02	0	0	0	-	-	-	0
+msgget03	0	0	0	-	-	-	0
+msgget04	0	0	0	-	-	-	0
+msgget05	0	0	0	-	-	-	0
+msgrcv01	0	0	0	-	-	-	0
+msgrcv02	0	0	0	-	-	-	0
+msgrcv03	0	0	0	-	-	-	0
+msgrcv05	0	0	0	-	-	-	0
+msgrcv06	0	0	0	-	-	-	0
+msgrcv07	0	0	0	-	-	-	0
+msgrcv08	0	0	0	-	-	-	0
+msgsnd01	0	0	0	-	-	-	0
+msgsnd02	0	0	0	-	-	-	0
+msgsnd05	0	0	0	-	-	-	0
+msgsnd06	0	0	0	-	-	-	0
+msgstress01	0	0	0	-	-	-	0
+msync01	0	0	0	-	-	-	0
+msync02	0	0	0	-	-	-	0
+msync03	0	0	0	-	-	-	0
+msync04	0	0	0	-	-	-	0
+munlock01	0	0	0	-	-	-	0
+munlock02	0	0	0	-	-	-	0
+munlockall01	0	0	0	-	-	-	0
+munmap01	0	0	0	-	-	-	0
+munmap02	0	0	0	-	-	-	0
+munmap03	0	0	0	-	-	-	0
+name_to_handle_at01	0	0	0	-	-	-	0
+name_to_handle_at02	0	0	0	-	-	-	0
+nanosleep01	0	0	0	-	-	-	0
+nanosleep02	0	0	0	-	-	-	0
+nanosleep04	0	0	0	-	-	-	0
+newuname01	0	0	0	-	-	-	0
+nftw01	0	0	0	-	-	-	0
+nftw6401	0	0	0	-	-	-	0
+nice01	0	0	0	-	-	-	0
+nice02	0	0	0	-	-	-	0
+nice03	0	0	0	-	-	-	0
+nice04	0	0	0	-	-	-	0
+nice05	0	0	0	-	-	-	0
+open01	0	0	0	-	-	-	0
+open01A	0	0	0	-	-	-	0
+open02	0	0	0	-	-	-	0
+open03	0	0	0	-	-	-	0
+open04	0	0	0	-	-	-	0
+open06	0	0	0	-	-	-	0
+open07	0	0	0	-	-	-	0
+open08	0	0	0	-	-	-	0
+open09	0	0	0	-	-	-	0
+open10	0	0	0	-	-	-	0
+open11	0	0	0	-	-	-	0
+open12	0	0	0	-	-	-	0
+open13	0	0	0	-	-	-	0
+open14	0	0	0	-	-	-	0
+open_by_handle_at01	0	0	0	-	-	-	0
+open_by_handle_at02	0	0	0	-	-	-	0
+open_tree01	0	0	0	-	-	-	0
+open_tree02	0	0	0	-	-	-	0
+openat01	0	0	0	-	-	-	0
+openat02	0	0	0	-	-	-	0
+openat03	0	0	0	-	-	-	0
+openat04	0	0	0	-	-	-	0
+openat201	0	0	0	-	-	-	0
+openat202	0	0	0	-	-	-	0
+openat203	0	0	0	-	-	-	0
+pathconf01	0	0	0	-	-	-	0
+pathconf02	0	0	0	-	-	-	0
+pause01	0	0	0	-	-	-	0
+pause02	0	0	0	-	-	-	0
+pause03	0	0	0	-	-	-	0
+perf_event_open01	0	0	0	-	-	-	0
+perf_event_open02	0	0	0	-	-	-	0
+perf_event_open03	0	0	0	-	-	-	0
+personality01	0	0	0	-	-	-	0
+personality02	0	0	0	-	-	-	0
+pidfd_getfd01	0	0	0	-	-	-	0
+pidfd_getfd02	0	0	0	-	-	-	0
+pidfd_open01	0	0	0	-	-	-	0
+pidfd_open02	0	0	0	-	-	-	0
+pidfd_open03	0	0	0	-	-	-	0
+pidfd_open04	0	0	0	-	-	-	0
+pidfd_send_signal01	0	0	0	-	-	-	0
+pidfd_send_signal02	0	0	0	-	-	-	0
+pidfd_send_signal03	0	0	0	-	-	-	0
+pipe01	0	0	0	-	-	-	0
+pipe02	0	0	0	-	-	-	0
+pipe03	0	0	0	-	-	-	0
+pipe04	0	0	0	-	-	-	0
+pipe05	0	0	0	-	-	-	0
+pipe06	0	0	0	-	-	-	0
+pipe07	0	0	0	-	-	-	0
+pipe08	0	0	0	-	-	-	0
+pipe09	0	0	0	-	-	-	0
+pipe10	0	0	0	-	-	-	0
+pipe11	0	0	0	-	-	-	0
+pipe12	0	0	0	-	-	-	0
+pipe13	0	0	0	-	-	-	0
+pipe14	0	0	0	-	-	-	0
+pipe15	0	0	0	-	-	-	0
+pipe2_01	0	0	0	-	-	-	0
+pipe2_02	0	0	0	-	-	-	0
+pipe2_04	0	0	0	-	-	-	0
+pivot_root01	0	0	0	-	-	-	0
+pkey01	0	0	0	-	-	-	0
+poll01	0	0	0	-	-	-	0
+poll02	0	0	0	-	-	-	0
+posix_fadvise01	6	6	6	0	0	0	6
+posix_fadvise01_64	6	6	6	0	0	0	6
+posix_fadvise02	6	6	6	0	0	0	6
+posix_fadvise02_64	6	6	6	0	0	0	6
+posix_fadvise03	32	32	32	0	0	0	32
+posix_fadvise03_64	32	32	32	0	0	0	32
+posix_fadvise04	6	6	6	0	0	0	6
+posix_fadvise04_64	6	6	6	0	0	0	6
+ppoll01	0	0	0	-	-	-	0
+prctl01	0	0	0	-	-	-	0
+prctl02	0	0	0	-	-	-	0
+prctl03	0	0	0	-	-	-	0
+prctl04	0	0	0	-	-	-	0
+prctl05	0	0	0	-	-	-	0
+prctl06	0	0	0	-	-	-	0
+prctl07	0	0	0	-	-	-	0
+prctl08	0	0	0	-	-	-	0
+prctl09	0	0	0	-	-	-	0
+prctl10	0	0	0	-	-	-	0
+pread01	0	0	0	-	-	-	0
+pread01_64	0	0	0	-	-	-	0
+pread02	0	0	0	-	-	-	0
+pread02_64	0	0	0	-	-	-	0
+preadv01	0	0	0	-	-	-	0
+preadv01_64	0	0	0	-	-	-	0
+preadv02	0	0	0	-	-	-	0
+preadv02_64	0	0	0	-	-	-	0
+preadv03	0	0	0	-	-	-	0
+preadv03_64	0	0	0	-	-	-	0
+preadv201	0	0	0	-	-	-	0
+preadv201_64	0	0	0	-	-	-	0
+preadv202	0	0	0	-	-	-	0
+preadv202_64	0	0	0	-	-	-	0
+preadv203	0	0	0	-	-	-	0
+preadv203_64	0	0	0	-	-	-	0
+process_madvise01	0	0	0	-	-	-	0
+process_vm_readv01	0	0	0	-	-	-	0
+process_vm_readv02	0	0	0	-	-	-	0
+process_vm_readv03	0	0	0	-	-	-	0
+process_vm_writev01	0	0	0	-	-	-	0
+process_vm_writev02	0	0	0	-	-	-	0
+profil01	0	0	0	-	-	-	0
+prot_hsymlinks	0	0	0	-	-	-	0
+pselect01	0	0	0	-	-	-	0
+pselect01_64	0	0	0	-	-	-	0
+pselect02	0	0	0	-	-	-	0
+pselect02_64	0	0	0	-	-	-	0
+pselect03	0	0	0	-	-	-	0
+pselect03_64	0	0	0	-	-	-	0
+ptrace01	0	0	0	-	-	-	0
+ptrace02	0	0	0	-	-	-	0
+ptrace03	0	0	0	-	-	-	0
+ptrace04	0	0	0	-	-	-	0
+ptrace05	0	0	0	-	-	-	0
+ptrace06	0	0	0	-	-	-	0
+ptrace07	0	0	0	-	-	-	0
+ptrace08	0	0	0	-	-	-	0
+ptrace09	0	0	0	-	-	-	0
+ptrace10	0	0	0	-	-	-	0
+ptrace11	0	0	0	-	-	-	0
+pwrite01	0	0	0	-	-	-	0
+pwrite01_64	0	0	0	-	-	-	0
+pwrite02	0	0	0	-	-	-	0
+pwrite02_64	0	0	0	-	-	-	0
+pwrite03	0	0	0	-	-	-	0
+pwrite03_64	0	0	0	-	-	-	0
+pwrite04	0	0	0	-	-	-	0
+pwrite04_64	0	0	0	-	-	-	0
+pwritev01	0	0	0	-	-	-	0
+pwritev01_64	0	0	0	-	-	-	0
+pwritev02	0	0	0	-	-	-	0
+pwritev02_64	0	0	0	-	-	-	0
+pwritev03	0	0	0	-	-	-	0
+pwritev03_64	0	0	0	-	-	-	0
+pwritev201	0	0	0	-	-	-	0
+pwritev201_64	0	0	0	-	-	-	0
+pwritev202	0	0	0	-	-	-	0
+pwritev202_64	0	0	0	-	-	-	0
+qmm01	0	0	0	-	-	-	0
+quotactl01	0	0	0	-	-	-	0
+quotactl02	0	0	0	-	-	-	0
+quotactl03	0	0	0	-	-	-	0
+quotactl04	0	0	0	-	-	-	0
+quotactl05	0	0	0	-	-	-	0
+quotactl06	0	0	0	-	-	-	0
+quotactl07	0	0	0	-	-	-	0
+quotactl08	0	0	0	-	-	-	0
+quotactl09	0	0	0	-	-	-	0
+read01	0	0	0	-	-	-	0
+read02	0	0	0	-	-	-	0
+read03	0	0	0	-	-	-	0
+read04	0	0	0	-	-	-	0
+readahead01	0	0	0	-	-	-	0
+readahead02	0	0	0	-	-	-	0
+readdir01	0	0	0	-	-	-	0
+readdir21	0	0	0	-	-	-	0
+readlink01	0	0	0	-	-	-	0
+readlink01A	0	0	0	-	-	-	0
+readlink03	0	0	0	-	-	-	0
+readlinkat01	0	0	0	-	-	-	0
+readlinkat02	0	0	0	-	-	-	0
+readv01	0	0	0	-	-	-	0
+readv02	0	0	0	-	-	-	0
+realpath01	0	0	0	-	-	-	0
+reboot01	0	0	0	-	-	-	0
+reboot02	0	0	0	-	-	-	0
+recv01	0	0	0	-	-	-	0
+recvfrom01	0	0	0	-	-	-	0
+recvmmsg01	0	0	0	-	-	-	0
+recvmsg01	0	0	0	-	-	-	0
+recvmsg02	0	0	0	-	-	-	0
+recvmsg03	0	0	0	-	-	-	0
+remap_file_pages01	0	0	0	-	-	-	0
+remap_file_pages02	0	0	0	-	-	-	0
+removexattr01	0	0	0	-	-	-	0
+removexattr02	0	0	0	-	-	-	0
+rename01	0	0	0	-	-	-	0
+rename01A	0	0	0	-	-	-	0
+rename03	0	0	0	-	-	-	0
+rename04	0	0	0	-	-	-	0
+rename05	0	0	0	-	-	-	0
+rename06	0	0	0	-	-	-	0
+rename07	0	0	0	-	-	-	0
+rename08	0	0	0	-	-	-	0
+rename09	0	0	0	-	-	-	0
+rename10	0	0	0	-	-	-	0
+rename11	0	0	0	-	-	-	0
+rename12	0	0	0	-	-	-	0
+rename13	0	0	0	-	-	-	0
+rename14	0	0	0	-	-	-	0
+renameat01	0	0	0	-	-	-	0
+renameat201	0	0	0	-	-	-	0
+renameat202	0	0	0	-	-	-	0
+request_key01	0	0	0	-	-	-	0
+request_key02	0	0	0	-	-	-	0
+request_key03	0	0	0	-	-	-	0
+request_key04	0	0	0	-	-	-	0
+request_key05	0	0	0	-	-	-	0
+rmdir01	0	0	0	-	-	-	0
+rmdir02	0	0	0	-	-	-	0
+rmdir03	0	0	0	-	-	-	0
+rmdir03A	0	0	0	-	-	-	0
+rt_sigaction01	0	0	0	-	-	-	0
+rt_sigaction02	0	0	0	-	-	-	0
+rt_sigaction03	0	0	0	-	-	-	0
+rt_sigprocmask01	0	0	0	-	-	-	0
+rt_sigprocmask02	0	0	0	-	-	-	0
+rt_sigqueueinfo01	0	0	0	-	-	-	0
+rt_sigsuspend01	0	0	0	-	-	-	0
+rt_sigtimedwait01	0	0	0	-	-	-	0
+rt_tgsigqueueinfo01	0	0	0	-	-	-	0
+sbrk01	0	0	0	-	-	-	0
+sbrk02	0	0	0	-	-	-	0
+sbrk03	0	0	0	-	-	-	0
+sched_get_priority_max01	0	0	0	-	-	-	0
+sched_get_priority_max02	0	0	0	-	-	-	0
+sched_get_priority_min01	0	0	0	-	-	-	0
+sched_get_priority_min02	0	0	0	-	-	-	0
+sched_getaffinity01	0	0	0	-	-	-	0
+sched_getattr01	0	0	0	-	-	-	0
+sched_getattr02	0	0	0	-	-	-	0
+sched_getparam01	0	0	0	-	-	-	0
+sched_getparam03	0	0	0	-	-	-	0
+sched_getscheduler01	0	0	0	-	-	-	0
+sched_getscheduler02	0	0	0	-	-	-	0
+sched_rr_get_interval01	0	0	0	-	-	-	0
+sched_rr_get_interval02	0	0	0	-	-	-	0
+sched_rr_get_interval03	0	0	0	-	-	-	0
+sched_setaffinity01	0	0	0	-	-	-	0
+sched_setattr01	0	0	0	-	-	-	0
+sched_setparam01	0	0	0	-	-	-	0
+sched_setparam02	0	0	0	-	-	-	0
+sched_setparam03	0	0	0	-	-	-	0
+sched_setparam04	0	0	0	-	-	-	0
+sched_setparam05	0	0	0	-	-	-	0
+sched_setscheduler01	0	0	0	-	-	-	0
+sched_setscheduler02	0	0	0	-	-	-	0
+sched_setscheduler03	0	0	0	-	-	-	0
+sched_setscheduler04	0	0	0	-	-	-	0
+sched_yield01	0	0	0	-	-	-	0
+select01	0	0	0	-	-	-	0
+select02	0	0	0	-	-	-	0
+select03	0	0	0	-	-	-	0
+select04	0	0	0	-	-	-	0
+semctl01	0	0	0	-	-	-	0
+semctl02	0	0	0	-	-	-	0
+semctl03	0	0	0	-	-	-	0
+semctl04	0	0	0	-	-	-	0
+semctl05	0	0	0	-	-	-	0
+semctl06	0	0	0	-	-	-	0
+semctl07	0	0	0	-	-	-	0
+semctl08	0	0	0	-	-	-	0
+semctl09	0	0	0	-	-	-	0
+semget01	0	0	0	-	-	-	0
+semget02	0	0	0	-	-	-	0
+semget05	0	0	0	-	-	-	0
+semop01	0	0	0	-	-	-	0
+semop02	0	0	0	-	-	-	0
+semop03	0	0	0	-	-	-	0
+semop04	0	0	0	-	-	-	0
+semop05	0	0	0	-	-	-	0
+send01	0	0	0	-	-	-	0
+send02	0	0	0	-	-	-	0
+sendfile02	0	0	0	-	-	-	0
+sendfile02_64	0	0	0	-	-	-	0
+sendfile03	0	0	0	-	-	-	0
+sendfile03_64	0	0	0	-	-	-	0
+sendfile04	0	0	0	-	-	-	0
+sendfile04_64	0	0	0	-	-	-	0
+sendfile05	0	0	0	-	-	-	0
+sendfile05_64	0	0	0	-	-	-	0
+sendfile06	0	0	0	-	-	-	0
+sendfile06_64	0	0	0	-	-	-	0
+sendfile07	0	0	0	-	-	-	0
+sendfile07_64	0	0	0	-	-	-	0
+sendfile08	0	0	0	-	-	-	0
+sendfile08_64	0	0	0	-	-	-	0
+sendfile09	0	0	0	-	-	-	0
+sendfile09_64	0	0	0	-	-	-	0
+sendmmsg01	0	0	0	-	-	-	0
+sendmmsg02	0	0	0	-	-	-	0
+sendmsg01	0	0	0	-	-	-	0
+sendmsg02	0	0	0	-	-	-	0
+sendmsg03	0	0	0	-	-	-	0
+sendto01	0	0	0	-	-	-	0
+sendto02	0	0	0	-	-	-	0
+sendto03	0	0	0	-	-	-	0
+set_mempolicy01	0	0	0	-	-	-	0
+set_mempolicy02	0	0	0	-	-	-	0
+set_mempolicy03	0	0	0	-	-	-	0
+set_mempolicy04	0	0	0	-	-	-	0
+set_robust_list01	0	0	0	-	-	-	0
+set_thread_area01	0	0	0	-	-	-	0
+set_tid_address01	0	0	0	-	-	-	0
+setdomainname01	0	0	0	-	-	-	0
+setdomainname02	0	0	0	-	-	-	0
+setdomainname03	0	0	0	-	-	-	0
+setegid01	0	0	0	-	-	-	0
+setegid02	0	0	0	-	-	-	0
+setfsgid01	0	0	0	-	-	-	0
+setfsgid01_16	0	0	0	-	-	-	0
+setfsgid02	0	0	0	-	-	-	0
+setfsgid02_16	0	0	0	-	-	-	0
+setfsgid03	0	0	0	-	-	-	0
+setfsgid03_16	0	0	0	-	-	-	0
+setfsuid01	0	0	0	-	-	-	0
+setfsuid01_16	0	0	0	-	-	-	0
+setfsuid02	0	0	0	-	-	-	0
+setfsuid02_16	0	0	0	-	-	-	0
+setfsuid03	0	0	0	-	-	-	0
+setfsuid03_16	0	0	0	-	-	-	0
+setfsuid04	0	0	0	-	-	-	0
+setfsuid04_16	0	0	0	-	-	-	0
+setgid01	0	0	0	-	-	-	0
+setgid01_16	0	0	0	-	-	-	0
+setgid02	0	0	0	-	-	-	0
+setgid02_16	0	0	0	-	-	-	0
+setgid03	0	0	0	-	-	-	0
+setgid03_16	0	0	0	-	-	-	0
+setgroups01	0	0	0	-	-	-	0
+setgroups01_16	0	0	0	-	-	-	0
+setgroups02	0	0	0	-	-	-	0
+setgroups02_16	0	0	0	-	-	-	0
+setgroups03	0	0	0	-	-	-	0
+setgroups03_16	0	0	0	-	-	-	0
+sethostname01	0	0	0	-	-	-	0
+sethostname02	0	0	0	-	-	-	0
+sethostname03	0	0	0	-	-	-	0
+setitimer01	0	0	0	-	-	-	0
+setitimer02	0	0	0	-	-	-	0
+setns01	0	0	0	-	-	-	0
+setns02	0	0	0	-	-	-	0
+setpgid01	0	0	0	-	-	-	0
+setpgid02	0	0	0	-	-	-	0
+setpgid03	0	0	0	-	-	-	0
+setpgrp01	0	0	0	-	-	-	0
+setpgrp02	0	0	0	-	-	-	0
+setpriority01	0	0	0	-	-	-	0
+setpriority02	0	0	0	-	-	-	0
+setregid01	0	0	0	-	-	-	0
+setregid01_16	0	0	0	-	-	-	0
+setregid02	0	0	0	-	-	-	0
+setregid02_16	0	0	0	-	-	-	0
+setregid03	0	0	0	-	-	-	0
+setregid03_16	0	0	0	-	-	-	0
+setregid04	0	0	0	-	-	-	0
+setregid04_16	0	0	0	-	-	-	0
+setresgid01	0	0	0	-	-	-	0
+setresgid01_16	0	0	0	-	-	-	0
+setresgid02	0	0	0	-	-	-	0
+setresgid02_16	0	0	0	-	-	-	0
+setresgid03	0	0	0	-	-	-	0
+setresgid03_16	0	0	0	-	-	-	0
+setresgid04	0	0	0	-	-	-	0
+setresgid04_16	0	0	0	-	-	-	0
+setresuid01	0	0	0	-	-	-	0
+setresuid01_16	0	0	0	-	-	-	0
+setresuid02	0	0	0	-	-	-	0
+setresuid02_16	0	0	0	-	-	-	0
+setresuid03	0	0	0	-	-	-	0
+setresuid03_16	0	0	0	-	-	-	0
+setresuid04	0	0	0	-	-	-	0
+setresuid04_16	0	0	0	-	-	-	0
+setresuid05	0	0	0	-	-	-	0
+setresuid05_16	0	0	0	-	-	-	0
+setreuid01	0	0	0	-	-	-	0
+setreuid01_16	0	0	0	-	-	-	0
+setreuid02	0	0	0	-	-	-	0
+setreuid02_16	0	0	0	-	-	-	0
+setreuid03	0	0	0	-	-	-	0
+setreuid03_16	0	0	0	-	-	-	0
+setreuid04	0	0	0	-	-	-	0
+setreuid04_16	0	0	0	-	-	-	0
+setreuid05	0	0	0	-	-	-	0
+setreuid05_16	0	0	0	-	-	-	0
+setreuid06	0	0	0	-	-	-	0
+setreuid06_16	0	0	0	-	-	-	0
+setreuid07	0	0	0	-	-	-	0
+setreuid07_16	0	0	0	-	-	-	0
+setrlimit01	0	0	0	-	-	-	0
+setrlimit02	0	0	0	-	-	-	0
+setrlimit03	0	0	0	-	-	-	0
+setrlimit04	0	0	0	-	-	-	0
+setrlimit05	0	0	0	-	-	-	0
+setrlimit06	0	0	0	-	-	-	0
+setsid01	0	0	0	-	-	-	0
+setsockopt01	0	0	0	-	-	-	0
+setsockopt02	0	0	0	-	-	-	0
+setsockopt03	0	0	0	-	-	-	0
+setsockopt04	0	0	0	-	-	-	0
+setsockopt05	0	0	0	-	-	-	0
+setsockopt06	0	0	0	-	-	-	0
+setsockopt07	0	0	0	-	-	-	0
+setsockopt08	0	0	0	-	-	-	0
+setsockopt09	0	0	0	-	-	-	0
+setsockopt10	0	0	0	-	-	-	0
+settimeofday01	0	0	0	-	-	-	0
+settimeofday02	0	0	0	-	-	-	0
+setuid01	0	0	0	-	-	-	0
+setuid01_16	0	0	0	-	-	-	0
+setuid03	0	0	0	-	-	-	0
+setuid03_16	0	0	0	-	-	-	0
+setuid04	0	0	0	-	-	-	0
+setuid04_16	0	0	0	-	-	-	0
+setxattr01	0	0	0	-	-	-	0
+setxattr02	0	0	0	-	-	-	0
+setxattr03	0	0	0	-	-	-	0
+sgetmask01	0	0	0	-	-	-	0
+shmat01	0	0	0	-	-	-	0
+shmat02	0	0	0	-	-	-	0
+shmat03	0	0	0	-	-	-	0
+shmat04	0	0	0	-	-	-	0
+shmctl01	0	0	0	-	-	-	0
+shmctl02	0	0	0	-	-	-	0
+shmctl03	0	0	0	-	-	-	0
+shmctl04	0	0	0	-	-	-	0
+shmctl05	0	0	0	-	-	-	0
+shmctl06	0	0	0	-	-	-	0
+shmctl07	0	0	0	-	-	-	0
+shmctl08	0	0	0	-	-	-	0
+shmdt01	0	0	0	-	-	-	0
+shmdt02	0	0	0	-	-	-	0
+shmget02	0	0	0	-	-	-	0
+shmget03	0	0	0	-	-	-	0
+shmget04	0	0	0	-	-	-	0
+shmget05	0	0	0	-	-	-	0
+shmget06	0	0	0	-	-	-	0
+sigaction01	0	0	0	-	-	-	0
+sigaction02	0	0	0	-	-	-	0
+sigaltstack01	0	0	0	-	-	-	0
+sigaltstack02	0	0	0	-	-	-	0
+sighold02	0	0	0	-	-	-	0
+signal01	0	0	0	-	-	-	0
+signal02	0	0	0	-	-	-	0
+signal03	0	0	0	-	-	-	0
+signal04	0	0	0	-	-	-	0
+signal05	0	0	0	-	-	-	0
+signal06	0	0	0	-	-	-	0
+signalfd01	0	0	0	-	-	-	0
+signalfd4_01	0	0	0	-	-	-	0
+signalfd4_02	0	0	0	-	-	-	0
+sigpending02	0	0	0	-	-	-	0
+sigprocmask01	0	0	0	-	-	-	0
+sigrelse01	0	0	0	-	-	-	0
+sigsuspend01	0	0	0	-	-	-	0
+sigtimedwait01	0	0	0	-	-	-	0
+sigwait01	0	0	0	-	-	-	0
+sigwaitinfo01	0	0	0	-	-	-	0
+socket01	0	0	0	-	-	-	0
+socket02	0	0	0	-	-	-	0
+socketcall01	0	0	0	-	-	-	0
+socketcall02	0	0	0	-	-	-	0
+socketcall03	0	0	0	-	-	-	0
+socketpair01	0	0	0	-	-	-	0
+socketpair02	0	0	0	-	-	-	0
+sockioctl01	0	0	0	-	-	-	0
+splice01	0	0	0	-	-	-	0
+splice02	0	0	0	-	-	-	0
+splice03	0	0	0	-	-	-	0
+splice04	0	0	0	-	-	-	0
+splice05	0	0	0	-	-	-	0
+splice06	0	0	0	-	-	-	0
+splice07	0	0	0	-	-	-	0
+splice08	0	0	0	-	-	-	0
+splice09	0	0	0	-	-	-	0
+ssetmask01	0	0	0	-	-	-	0
+stat01	0	0	0	-	-	-	0
+stat01_64	0	0	0	-	-	-	0
+stat02	0	0	0	-	-	-	0
+stat02_64	0	0	0	-	-	-	0
+stat03	0	0	0	-	-	-	0
+stat03_64	0	0	0	-	-	-	0
+stat04	0	0	0	-	-	-	0
+stat04_64	0	0	0	-	-	-	0
+statfs01	0	0	0	-	-	-	0
+statfs01_64	0	0	0	-	-	-	0
+statfs02	0	0	0	-	-	-	0
+statfs02_64	0	0	0	-	-	-	0
+statfs03	0	0	0	-	-	-	0
+statfs03_64	0	0	0	-	-	-	0
+statvfs01	0	0	0	-	-	-	0
+statvfs02	0	0	0	-	-	-	0
+statx01	0	0	0	-	-	-	0
+statx02	0	0	0	-	-	-	0
+statx03	0	0	0	-	-	-	0
+statx04	0	0	0	-	-	-	0
+statx05	0	0	0	-	-	-	0
+statx06	0	0	0	-	-	-	0
+statx07	0	0	0	-	-	-	0
+statx08	0	0	0	-	-	-	0
+statx09	0	0	0	-	-	-	0
+statx10	0	0	0	-	-	-	0
+statx11	0	0	0	-	-	-	0
+statx12	0	0	0	-	-	-	0
+stime01	0	0	0	-	-	-	0
+stime02	0	0	0	-	-	-	0
+string01	0	0	0	-	-	-	0
+swapoff01	0	0	0	-	-	-	0
+swapoff02	0	0	0	-	-	-	0
+swapon01	0	0	0	-	-	-	0
+swapon02	0	0	0	-	-	-	0
+swapon03	0	0	0	-	-	-	0
+switch01	0	0	0	-	-	-	0
+symlink01	0	0	0	-	-	-	0
+symlink02	0	0	0	-	-	-	0
+symlink03	0	0	0	-	-	-	0
+symlink04	0	0	0	-	-	-	0
+symlinkat01	0	0	0	-	-	-	0
+sync01	0	0	0	-	-	-	0
+sync_file_range01	0	0	0	-	-	-	0
+sync_file_range02	0	0	0	-	-	-	0
+syncfs01	0	0	0	-	-	-	0
+syscall01	0	0	0	-	-	-	0
+sysconf01	0	0	0	-	-	-	0
+sysctl01	0	0	0	-	-	-	0
+sysctl03	0	0	0	-	-	-	0
+sysctl04	0	0	0	-	-	-	0
+sysfs01	0	0	0	-	-	-	0
+sysfs02	0	0	0	-	-	-	0
+sysfs03	0	0	0	-	-	-	0
+sysfs04	0	0	0	-	-	-	0
+sysfs05	0	0	0	-	-	-	0
+sysinfo01	0	0	0	-	-	-	0
+sysinfo02	0	0	0	-	-	-	0
+sysinfo03	0	0	0	-	-	-	0
+syslog11	0	0	0	-	-	-	0
+syslog12	0	0	0	-	-	-	0
+tee01	0	0	0	-	-	-	0
+tee02	0	0	0	-	-	-	0
+tgkill01	0	0	0	-	-	-	0
+tgkill02	0	0	0	-	-	-	0
+tgkill03	0	0	0	-	-	-	0
+time01	0	0	0	-	-	-	0
+timer_create01	0	0	0	-	-	-	0
+timer_create02	0	0	0	-	-	-	0
+timer_create03	0	0	0	-	-	-	0
+timer_delete01	0	0	0	-	-	-	0
+timer_delete02	0	0	0	-	-	-	0
+timer_getoverrun01	0	0	0	-	-	-	0
+timer_gettime01	0	0	0	-	-	-	0
+timer_settime01	0	0	0	-	-	-	0
+timer_settime02	0	0	0	-	-	-	0
+timer_settime03	0	0	0	-	-	-	0
+timerfd01	0	0	0	-	-	-	0
+timerfd02	0	0	0	-	-	-	0
+timerfd04	0	0	0	-	-	-	0
+timerfd_create01	0	0	0	-	-	-	0
+timerfd_gettime01	0	0	0	-	-	-	0
+timerfd_settime01	0	0	0	-	-	-	0
+timerfd_settime02	0	0	0	-	-	-	0
+times01	0	0	0	-	-	-	0
+times03	0	0	0	-	-	-	0
+tkill01	0	0	0	-	-	-	0
+tkill02	0	0	0	-	-	-	0
+truncate02	0	0	0	-	-	-	0
+truncate02_64	0	0	0	-	-	-	0
+truncate03	0	0	0	-	-	-	0
+truncate03_64	0	0	0	-	-	-	0
+ulimit01	0	0	0	-	-	-	0
+umask01	0	0	0	-	-	-	0
+umount01	0	0	0	-	-	-	0
+umount02	0	0	0	-	-	-	0
+umount03	0	0	0	-	-	-	0
+umount2_01	0	0	0	-	-	-	0
+umount2_02	0	0	0	-	-	-	0
+uname01	0	0	0	-	-	-	0
+uname02	0	0	0	-	-	-	0
+uname04	0	0	0	-	-	-	0
+unlink01	0	0	0	-	-	-	0
+unlink05	0	0	0	-	-	-	0
+unlink07	0	0	0	-	-	-	0
+unlink08	0	0	0	-	-	-	0
+unlink09	0	0	0	-	-	-	0
+unlinkat01	0	0	0	-	-	-	0
+unshare01	0	0	0	-	-	-	0
+unshare02	0	0	0	-	-	-	0
+userfaultfd01	0	0	0	-	-	-	0
+ustat01	0	0	0	-	-	-	0
+ustat02	0	0	0	-	-	-	0
+utime01	0	0	0	-	-	-	0
+utime02	0	0	0	-	-	-	0
+utime03	0	0	0	-	-	-	0
+utime04	0	0	0	-	-	-	0
+utime05	0	0	0	-	-	-	0
+utime06	0	0	0	-	-	-	0
+utime07	0	0	0	-	-	-	0
+utimensat01	0	0	0	-	-	-	0
+utimes01	0	0	0	-	-	-	0
+vfork01	0	0	0	-	-	-	0
+vfork02	0	0	0	-	-	-	0
+vhangup01	0	0	0	-	-	-	0
+vhangup02	0	0	0	-	-	-	0
+vmsplice01	0	0	0	-	-	-	0
+vmsplice02	0	0	0	-	-	-	0
+vmsplice03	0	0	0	-	-	-	0
+vmsplice04	0	0	0	-	-	-	0
+wait01	0	0	0	-	-	-	0
+wait02	0	0	0	-	-	-	0
+wait401	0	0	0	-	-	-	0
+wait402	0	0	0	-	-	-	0
+wait403	0	0	0	-	-	-	0
+waitid01	0	0	0	-	-	-	0
+waitid02	0	0	0	-	-	-	0
+waitid03	0	0	0	-	-	-	0
+waitid04	0	0	0	-	-	-	0
+waitid05	0	0	0	-	-	-	0
+waitid06	0	0	0	-	-	-	0
+waitid07	0	0	0	-	-	-	0
+waitid08	0	0	0	-	-	-	0
+waitid09	0	0	0	-	-	-	0
+waitid10	0	0	0	-	-	-	0
+waitid11	0	0	0	-	-	-	0
+waitpid01	0	0	0	-	-	-	0
+waitpid03	0	0	0	-	-	-	0
+waitpid04	0	0	0	-	-	-	0
+waitpid06	0	0	0	-	-	-	0
+waitpid07	0	0	0	-	-	-	0
+waitpid08	0	0	0	-	-	-	0
+waitpid09	0	0	0	-	-	-	0
+waitpid10	0	0	0	-	-	-	0
+waitpid11	0	0	0	-	-	-	0
+waitpid12	0	0	0	-	-	-	0
+waitpid13	0	0	0	-	-	-	0
+write01	0	0	0	-	-	-	0
+write02	0	0	0	-	-	-	0
+write03	0	0	0	-	-	-	0
+write04	0	0	0	-	-	-	0
+write05	0	0	0	-	-	-	0
+write06	0	0	0	-	-	-	0
+writev01	0	0	0	-	-	-	0
+writev02	0	0	0	-	-	-	0
+writev03	0	0	0	-	-	-	0
+writev05	0	0	0	-	-	-	0
+writev06	0	0	0	-	-	-	0
+writev07	0	0	0	-	-	-	0
+总分			2106			1270	3376
+
+ltp-musl
+测试点	rv	la	总分
+总分	0
+
+lua-glibc
+测试点	rv	la	总分
+pass	all	score	pass	all	score
+lua date.lua	0	1	0	0	1	0	0
+lua file_io.lua	0	1	0	0	1	0	0
+lua max_min.lua	0	1	0	0	1	0	0
+lua random.lua	0	1	0	0	1	0	0
+lua remove.lua	0	1	0	0	1	0	0
+lua round_num.lua	0	1	0	0	1	0	0
+lua sin30.lua	0	1	0	0	1	0	0
+lua sort.lua	0	1	0	0	1	0	0
+lua strings.lua	0	1	0	0	1	0	0
+总分			0			0	0
+
+lua-musl
+测试点	rv	la	总分
+pass	all	score	pass	all	score
+lua date.lua	0	1	0	0	1	0	0
+lua file_io.lua	0	1	0	0	1	0	0
+lua max_min.lua	0	1	0	0	1	0	0
+lua random.lua	0	1	0	0	1	0	0
+lua remove.lua	0	1	0	0	1	0	0
+lua round_num.lua	0	1	0	0	1	0	0
+lua sin30.lua	0	1	0	0	1	0	0
+lua sort.lua	0	1	0	0	1	0	0
+lua strings.lua	0	1	0	0	1	0	0
+总分			0			0	0
+
+netperf-glibc
+测试点	rv	la	总分
+baseline	score	baseline	score
+netperf TCP_CRR (Trans. Rate/sec)	390.53	0.0	390.53	0.0	0.0
+netperf TCP_RR (Trans. Rate/sec)	2017.98	0.0	2017.98	0.0	0.0
+netperf TCP_STREAM (Throughput 10^6bits/sec)	79.75	0.0	79.75	0.0	0.0
+netperf UDP_RR (Trans. Rate/sec)	2070.62	0.0	2070.62	0.0	0.0
+netperf UDP_STREAM (Trans. Rate/sec)	27.5	0.0	27.5	0.0	0.0
+总分		0.0		0.0	0.0
+
+netperf-musl
+测试点	rv	la	总分
+baseline	score	baseline	score
+netperf TCP_CRR (Trans. Rate/sec)	390.53	0.0	390.53	0.0	0.0
+netperf TCP_RR (Trans. Rate/sec)	2017.98	0.0	2017.98	0.0	0.0
+netperf TCP_STREAM (Throughput 10^6bits/sec)	79.75	0.0	79.75	0.0	0.0
+netperf UDP_RR (Trans. Rate/sec)	2070.62	0.0	2070.62	0.0	0.0
+netperf UDP_STREAM (Trans. Rate/sec)	27.5	0.0	27.5	0.0	0.0
+总分		0.0		0.0	0.0
+
+下载Riscv输出  下载LoongArch输出 
+
+START TIME▼
+编译输出▲
+正在编译
+refresh_embedded_runtime: incomplete /coursegrader/submit/testsuits-for-oskernel-pre-2025 and no complete cached /coursegrader/submit/kernel/starry-next/embedded-runtime-refresh, skip refresh and rely on vendored runtime assets
+skip online-self-contained runtime verification: missing kernel/starry-next/embedded-runtime-refresh, continue with toolchain/vendored fallbacks
+make -C kernel ARCH=riscv OUT=../kernel-rv
+make[1]: Entering directory '/coursegrader/submit/kernel'
+"/coursegrader/submit/kernel/scripts/bootstrap_starry_overlay.sh"
+cd "/coursegrader/submit/kernel/starry-next" && PATH="/opt/riscv64-linux-musl-cross/bin:/opt/loongarch64-linux-musl-cross/bin:/root/.cache/osk-toolchains/riscv64-linux-musl-cross/bin:/root/.cache/osk-toolchains/loongarch64-linux-musl-cross/bin:$PATH" RUSTUP_TOOLCHAIN=nightly-2025-01-18 make test_build ARCH=riscv64 AX_TESTCASE=oscomp BUS=mmio FEATURES=lwext4_rs,sched_rr APP_FEATURES=lwext4_rs
+make[2]: Entering directory '/coursegrader/submit/kernel/starry-next'
+Set AX_ROOT (ArceOS directory) to /coursegrader/submit/kernel/starry-next/arceos
+make[3]: Entering directory '/coursegrader/submit/kernel/starry-next/arceos'
+[92;1mCreating[0m FAT32 disk image "disk.img" ...
+64+0 records in
+64+0 records out
+67108864 bytes (67 MB, 64 MiB) copied, 0.0349594 s, 1.9 GB/s
+mkfs.fat 4.2 (2021-01-31)
+make[3]: Leaving directory '/coursegrader/submit/kernel/starry-next/arceos'
+info: override toolchain for '/coursegrader/submit/kernel/starry-next' set to 'nightly-2025-01-18-x86_64-unknown-linux-gnu'
+make defconfig EXTRA_CONFIG="/coursegrader/submit/kernel/starry-next/configs/riscv64.toml" ARCH=riscv64
+make[3]: Entering directory '/coursegrader/submit/kernel/starry-next'
+Set AX_ROOT (ArceOS directory) to /coursegrader/submit/kernel/starry-next/arceos
+make[4]: Entering directory '/coursegrader/submit/kernel/starry-next/arceos'
+[93;1mwarning[0m: disk image "disk.img" already exists!
+make[4]: Leaving directory '/coursegrader/submit/kernel/starry-next/arceos'
+make[4]: Entering directory '/coursegrader/submit/kernel/starry-next/arceos'
+[37maxconfig-gen[0m [90mconfigs/defconfig.toml configs/platforms/riscv64-qemu-virt.toml /coursegrader/submit/kernel/starry-next/configs/riscv64.toml -w smp=1 -w arch=riscv64 -w platform=riscv64-qemu-virt -o "/coursegrader/submit/kernel/starry-next/.axconfig.toml"[0m
+make[4]: Leaving directory '/coursegrader/submit/kernel/starry-next/arceos'
+make[3]: Leaving directory '/coursegrader/submit/kernel/starry-next'
+make[3]: Entering directory '/coursegrader/submit/kernel/starry-next/arceos'
+[37maxconfig-gen[0m [90mconfigs/defconfig.toml configs/platforms/riscv64-qemu-virt.toml /coursegrader/submit/kernel/starry-next/configs/riscv64.toml -w smp=1 -w arch=riscv64 -w platform=riscv64-qemu-virt -o "/coursegrader/submit/kernel/starry-next/.axconfig.toml" -c "/coursegrader/submit/kernel/starry-next/.axconfig.toml"[0m
+[92;1mBuilding[0m App: starry-next, Arch: riscv64, Platform: riscv64-qemu-virt, App type: rust
+[37mcargo -C /coursegrader/submit/kernel/starry-next build[0m [90m-Z unstable-options --target riscv64gc-unknown-none-elf --target-dir /coursegrader/submit/kernel/starry-next/target --release --features "axstd/log-level-warn axstd/bus-mmio axstd/lwext4_rs axstd/sched_rr lwext4_rs"[0m
+warning: `/root/.cargo/config` is deprecated in favor of `config.toml`
+note: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+warning: `/root/.cargo/config` is deprecated in favor of `config.toml`
+note: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+Compiling proc-macro2 v1.0.93
+Compiling unicode-ident v1.0.17
+Compiling log v0.4.21
+Compiling bitflags v2.8.0
+Compiling equivalent v1.0.2
+Compiling utf8parse v0.2.2
+Compiling hashbrown v0.15.2
+Compiling is_terminal_polyfill v1.70.1
+Compiling anstyle v1.0.10
+Compiling colorchoice v1.0.3
+Compiling anstyle-parse v0.2.6
+Compiling anstyle-query v1.1.2
+Compiling autocfg v1.4.0
+Compiling winnow v0.7.3
+Compiling cfg-if v1.0.0
+Compiling toml_datetime v0.6.8
+Compiling anstream v0.6.18
+Compiling heck v0.5.0
+Compiling clap_lex v0.7.4
+Compiling strsim v0.11.1
+Compiling axerrno v0.1.0 (/coursegrader/submit/kernel/starry-next/patches/axerrno)
+Compiling syn v1.0.109
+Compiling axconfig v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axconfig)
+Compiling memory_addr v0.3.1
+Compiling indexmap v2.7.1
+Compiling clap_builder v4.5.30
+Compiling lock_api v0.4.12
+Compiling quote v1.0.38
+Compiling base64 v0.13.1
+Compiling paste v1.0.15
+Compiling unicode-width v0.1.14
+Compiling syn v2.0.98
+Compiling byteorder v1.5.0
+Compiling scopeguard v1.2.0
+Compiling linkme-impl v0.3.31
+Compiling bit_field v0.10.2
+Compiling const-default v1.0.0
+Compiling riscv v0.12.1
+Compiling bitmap-allocator v0.2.0 (/coursegrader/submit/kernel/starry-next/vendor/bitmap-allocator)
+Compiling page_table_entry v0.5.1 (/coursegrader/submit/kernel/starry-next/vendor/page_table_entry)
+Compiling embedded-hal v1.0.0
+Compiling buddy_system_allocator v0.10.0
+Compiling percpu v0.2.0
+Compiling critical-section v1.2.0
+Compiling riscv-pac v0.2.0
+Compiling spin v0.9.8
+Compiling lazyinit v0.2.1
+Compiling semver v1.0.25
+Compiling sbi-spec v0.0.7
+Compiling static_assertions v1.1.0
+Compiling sbi-rt v0.0.3
+Compiling int_ratio v0.1.1
+Compiling handler_table v0.1.2
+Compiling axdriver_base v0.1.0 (https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.0#78686a7e)
+Compiling bitmaps v3.2.1
+Compiling linked_list v0.1.0 (https://github.com/arceos-org/linked_list.git?tag=v0.1.0#34c8db30)
+Compiling axdriver_block v0.1.0 (https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.0#78686a7e)
+Compiling toml_edit v0.22.24
+Compiling scheduler v0.1.0 (/coursegrader/submit/kernel/starry-next/patches/scheduler)
+Compiling rustc_version v0.4.1
+Compiling axdriver_net v0.1.0 (https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.0#78686a7e)
+Compiling axdriver v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axdriver)
+Compiling timer_list v0.1.0
+Compiling hash32 v0.2.1
+Compiling axfs_vfs v0.1.1
+Compiling heapless v0.7.17
+Compiling num-traits v0.2.19
+Compiling cpumask v0.1.0
+Compiling smoltcp v0.10.0 (https://github.com/rcore-os/smoltcp.git?rev=2ade274#2ade2747)
+Compiling stable_deref_trait v1.2.0
+Compiling glob v0.3.2
+Compiling lwext4_rust v0.2.0 (/coursegrader/submit/kernel/starry-next/vendor/lwext4_rust)
+Compiling axio v0.1.0
+Compiling clang-sys v1.8.1
+Compiling libc v0.2.169
+Compiling prettyplease v0.2.29
+Compiling managed v0.8.0
+Compiling rustix v0.38.44
+Compiling bitflags v1.3.2
+Compiling svgbobdoc v0.3.0
+Compiling axfs_ramfs v0.1.1 (/coursegrader/submit/kernel/starry-next/patches/axfs_ramfs)
+Compiling rlsf v0.2.1
+Compiling axfs_devfs v0.1.1
+Compiling allocator v0.1.1 (/coursegrader/submit/kernel/starry-next/vendor/allocator)
+Compiling memory_set v0.3.1 (/coursegrader/submit/kernel/starry-next/vendor/memory_set)
+Compiling fatfs v0.4.0 (https://github.com/rafalh/rust-fatfs?rev=85f06e0#85f06e08)
+Compiling cap_access v0.1.0
+Compiling linux-raw-sys v0.4.15
+Compiling either v1.13.0
+Compiling regex-syntax v0.8.5
+Compiling memchr v2.7.4
+Compiling minimal-lexical v0.2.1
+Compiling libloading v0.8.6
+Compiling chrono v0.4.39
+Compiling nom v7.1.3
+Compiling clap_derive v4.5.28
+Compiling crate_interface v0.1.4
+Compiling kernel_guard v0.1.2
+Compiling kspin v0.1.0
+Compiling riscv-macros v0.1.0
+Compiling percpu_macros v0.2.0
+Compiling axalloc v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axalloc)
+Compiling axlog v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axlog)
+Compiling zerocopy-derive v0.7.35
+Compiling axns v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axns)
+Compiling ctor_bare_macros v0.2.1
+Compiling regex-automata v0.4.9
+Compiling ctor_bare v0.2.1
+Compiling home v0.5.11
+Compiling bindgen v0.69.5
+Compiling page_table_multiarch v0.5.1 (/coursegrader/submit/kernel/starry-next/vendor/page_table_multiarch)
+Compiling which v4.4.2
+Compiling cexpr v0.6.0
+Compiling linkme v0.3.31
+Compiling itertools v0.12.1
+Compiling clap v4.5.30
+Compiling axconfig-gen v0.1.0
+Compiling zerocopy v0.7.35
+Compiling lazycell v1.3.0
+Compiling axconfig-gen-macros v0.1.0
+Compiling virtio-drivers v0.7.4
+Compiling lazy_static v1.5.0
+Compiling shlex v1.3.0
+Compiling axhal v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axhal)
+Compiling rustc-hash v1.1.0
+Compiling syscalls v0.6.18 (https://github.com/jasonwhite/syscalls.git?rev=92624de#92624de3)
+Compiling regex v1.11.1
+Compiling zero v0.1.3
+Compiling xmas-elf v0.9.1
+Compiling num_enum_derive v0.7.3
+Compiling axtask v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axtask)
+warning: associated function `alloc` is never used
+--> arceos/modules/axtask/src/task.rs:525:12
+|
+524 | impl TaskStack {
+| -------------- associated function in this implementation
+525 | pub fn alloc(size: usize) -> Self {
+| ^^^^^
+|
+= note: `#[warn(dead_code)]` on by default
+
+Compiling axmm v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axmm)
+Compiling axsync v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axsync)
+warning: type `SharedPageRegistry` is more private than the item `Backend::Alloc::shared`
+--> arceos/modules/axmm/src/backend/mod.rs:45:9
+|
+45 | shared: Option>,
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `Backend::Alloc::shared` is reachable at visibility `pub`
+|
+note: but type `SharedPageRegistry` is only usable at visibility `pub(crate)`
+--> arceos/modules/axmm/src/backend/alloc.rs:23:1
+|
+23 | pub(crate) struct SharedPageRegistry {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+= note: `#[warn(private_interfaces)]` on by default
+
+warning: type `CowPageRegistry` is more private than the item `Backend::Cow::pages`
+--> arceos/modules/axmm/src/backend/mod.rs:56:9
+|
+56 | pages: Arc,
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `Backend::Cow::pages` is reachable at visibility `pub`
+|
+note: but type `CowPageRegistry` is only usable at visibility `pub(crate)`
+--> arceos/modules/axmm/src/backend/alloc.rs:27:1
+|
+27 | pub(crate) struct CowPageRegistry {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `SharedPageRegistry` is more private than the item `Backend::Shared::frames`
+--> arceos/modules/axmm/src/backend/mod.rs:61:9
+|
+61 | frames: Arc,
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `Backend::Shared::frames` is reachable at visibility `pub`
+|
+note: but type `SharedPageRegistry` is only usable at visibility `pub(crate)`
+--> arceos/modules/axmm/src/backend/alloc.rs:23:1
+|
+23 | pub(crate) struct SharedPageRegistry {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Compiling starry v0.1.0 (/coursegrader/submit/kernel/starry-next)
+Compiling flatten_objects v0.2.1 (/coursegrader/submit/kernel/starry-next/vendor/flatten_objects)
+Compiling axdriver_virtio v0.1.0 (https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.0#78686a7e)
+Compiling axdriver_pci v0.1.0 (https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.0#78686a7e)
+Compiling axnet v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axnet)
+warning: unused import: `alloc::string::String`
+--> vendor/lwext4_rust/src/ulibc.rs:3:5
+|
+3 | use alloc::string::String;
+| ^^^^^^^^^^^^^^^^^^^^^
+|
+= note: `#[warn(unused_imports)]` on by default
+
+warning: unused variable: `args`
+--> vendor/lwext4_rust/src/ulibc.rs:29:53
+|
+29 | unsafe extern "C" fn printf(str: *const c_char, mut args: ...) -> c_int {
+| ^^^^ help: if this is intentional, prefix it with an underscore: `_args`
+|
+= note: `#[warn(unused_variables)]` on by default
+
+warning: variable does not need to be mutable
+--> vendor/lwext4_rust/src/ulibc.rs:29:49
+|
+29 | unsafe extern "C" fn printf(str: *const c_char, mut args: ...) -> c_int {
+| ----^^^^
+| |
+| help: remove this `mut`
+|
+= note: `#[warn(unused_mut)]` on by default
+
+warning: starry@0.1.0: resolved musl runtime /opt/riscv64-linux-musl-cross/bin/../riscv64-linux-musl/lib/ld-musl-riscv64.so.1 via /opt/riscv64-linux-musl-cross/bin/../riscv64-linux-musl/lib/libc.so
+warning: starry@0.1.0: missing vendored embedded online refresh runtime root for arch=rv runtime=glibc, keep compiling without lib/ld-linux-riscv64-lp64d.so.1
+warning: starry@0.1.0: missing vendored embedded online refresh runtime root for arch=rv runtime=glibc, keep compiling without lib/libc.so.6
+warning: starry@0.1.0: resolved musl runtime /opt/loongarch64-linux-musl-cross/bin/../loongarch64-linux-musl/lib/ld-musl-loongarch64.so.1 via /opt/loongarch64-linux-musl-cross/bin/../loongarch64-linux-musl/lib/libc.so
+warning: starry@0.1.0: skip embedded online refresh for arch=rv runtime=glibc because no runtime root was found
+warning: starry@0.1.0: skip embedded online refresh for arch=rv runtime=musl because no runtime root was found
+Compiling num_enum v0.7.3
+Compiling kernel-elf-parser v0.3.0
+Compiling axfs v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axfs)
+warning: unused imports: `O_RDONLY` and `O_RDWR`
+--> arceos/modules/axfs/src/fs/lwext4_rust.rs:16:14
+|
+16 | O_CREAT, O_RDONLY, O_RDWR, O_TRUNC, O_WRONLY, SEEK_CUR, SEEK_END, SEEK_SET, ext4_mknod,
+| ^^^^^^^^ ^^^^^^
+|
+= note: `#[warn(unused_imports)]` on by default
+
+warning: `axtask` (lib) generated 1 warning
+warning: `lwext4_rust` (lib) generated 3 warnings (run `cargo fix --lib -p lwext4_rust` to apply 2 suggestions)
+Compiling numeric-enum-macro v0.2.0
+warning: methods `path_and_type` and `cached_child_type` are never used
+--> arceos/modules/axfs/src/fs/lwext4_rust.rs:164:8
+|
+141 | impl FileWrapper {
+| ---------------- methods in this implementation
+...
+164 | fn path_and_type(&self) -> (String, InodeTypes) {
+| ^^^^^^^^^^^^^
+...
+235 | fn cached_child_type(&self, path: &str) -> Option {
+| ^^^^^^^^^^^^^^^^^
+|
+= note: `#[warn(dead_code)]` on by default
+
+warning: method `copy_inner` is never used
+--> arceos/modules/axfs/src/root.rs:65:12
+|
+63 | impl CURRENT_ROOT_PATH {
+| ---------------------- method in this implementation
+64 | /// Return a copy of the inner root path.
+65 | pub fn copy_inner(&self) -> Mutex {
+| ^^^^^^^^^^
+
+warning: field `path` is never read
+--> arceos/modules/axfs/src/fops.rs:30:5
+|
+26 | pub struct File {
+| ---- field in this struct
+...
+30 | path: String,
+| ^^^^
+
+warning: `axmm` (lib) generated 3 warnings
+Compiling axruntime v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axruntime)
+Compiling axfeat v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/api/axfeat)
+Compiling arceos_api v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/api/arceos_api)
+Compiling axstd v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/ulib/axstd)
+warning: `axfs` (lib) generated 4 warnings (run `cargo fix --lib -p axfs` to apply 1 suggestion)
+Compiling arceos_posix_api v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/api/arceos_posix_api)
+warning: unused import: `alloc::vec`
+--> arceos/api/arceos_posix_api/src/imp/fs.rs:5:5
+|
+5 | use alloc::vec;
+| ^^^^^^^^^^
+|
+= note: `#[warn(unused_imports)]` on by default
+
+warning: unnecessary braces around block return value
+--> arceos/api/arceos_posix_api/src/imp/fs.rs:1976:29
+|
+1976 | syscall_body!(sys_open, { open_path(filename?, flags, mode) })
+| ^^ ^^
+|
+= note: `#[warn(unused_braces)]` on by default
+help: remove these braces
+|
+1976 - syscall_body!(sys_open, { open_path(filename?, flags, mode) })
+1976 + syscall_body!(sys_open, open_path(filename?, flags, mode))
+|
+
+warning: unused variable: `err`
+--> arceos/api/arceos_posix_api/src/imp/fs.rs:1445:21
+|
+1445 | Err(err) if write_len > 0 => break,
+| ^^^ help: if this is intentional, prefix it with an underscore: `_err`
+|
+= note: `#[warn(unused_variables)]` on by default
+
+warning: variable does not need to be mutable
+--> arceos/api/arceos_posix_api/src/imp/net.rs:775:21
+|
+775 | let mut socket = udpsocket.lock();
+| ----^^^^^^
+| |
+| help: remove this `mut`
+|
+= note: `#[warn(unused_mut)]` on by default
+
+warning: unreachable pattern
+--> arceos/api/arceos_posix_api/src/imp/net.rs:1219:66
+|
+1219 | 0 | ctypes::IPPROTO_TCP | ctypes::IPPROTO_SCTP | IPPROTO_SCTP_U32 => {
+| -------------------- ^^^^^^^^^^^^^^^^ no value can reach this
+| |
+| matches all the relevant values
+|
+= note: `#[warn(unreachable_patterns)]` on by default
+
+warning: unreachable pattern
+--> arceos/api/arceos_posix_api/src/imp/net.rs:1225:69
+|
+1225 | 0 | ctypes::IPPROTO_UDP | ctypes::IPPROTO_UDPLITE | IPPROTO_UDPLITE_U32 => {
+| ----------------------- ^^^^^^^^^^^^^^^^^^^ no value can reach this
+| |
+| matches all the relevant values
+
+warning: unreachable pattern
+--> arceos/api/arceos_posix_api/src/imp/net.rs:1313:70
+|
+1313 | 0 | ctypes::IPPROTO_TCP | ctypes::IPPROTO_SCTP | IPPROTO_SCTP_U32 => {
+| -------------------- ^^^^^^^^^^^^^^^^ no value can reach this
+| |
+| matches all the relevant values
+
+warning: unreachable pattern
+--> arceos/api/arceos_posix_api/src/imp/net.rs:1319:73
+|
+1319 | 0 | ctypes::IPPROTO_UDP | ctypes::IPPROTO_UDPLITE | IPPROTO_UDPLITE_U32 => {
+| ----------------------- ^^^^^^^^^^^^^^^^^^^ no value can reach this
+| |
+| matches all the relevant values
+
+warning: type `UnixSocket` is more private than the item `SocketInner::Unix::0`
+--> arceos/api/arceos_posix_api/src/imp/net.rs:686:10
+|
+686 | Unix(Arc),
+| ^^^^^^^^^^^^^^^ field `SocketInner::Unix::0` is reachable at visibility `pub(crate)`
+|
+note: but type `UnixSocket` is only usable at visibility `pub(self)`
+--> arceos/api/arceos_posix_api/src/imp/net.rs:163:1
+|
+163 | struct UnixSocket {
+| ^^^^^^^^^^^^^^^^^
+= note: `#[warn(private_interfaces)]` on by default
+
+warning: function `proc_mounts_contents` is never used
+--> arceos/api/arceos_posix_api/src/imp/fs.rs:491:4
+|
+491 | fn proc_mounts_contents() -> &'static str {
+| ^^^^^^^^^^^^^^^^^^^^
+|
+= note: `#[warn(dead_code)]` on by default
+
+warning: associated function `from_fd` is never used
+--> arceos/api/arceos_posix_api/src/imp/fs.rs:675:8
+|
+649 | impl File {
+| --------- associated function in this implementation
+...
+675 | fn from_fd(fd: c_int) -> LinuxResult> {
+| ^^^^^^^
+
+warning: constant `IPPROTO_SCTP` is never used
+--> arceos/api/arceos_posix_api/src/imp/net.rs:40:7
+|
+40 | const IPPROTO_SCTP: i32 = 132;
+| ^^^^^^^^^^^^
+
+warning: constant `IPPROTO_UDPLITE` is never used
+--> arceos/api/arceos_posix_api/src/imp/net.rs:41:7
+|
+41 | const IPPROTO_UDPLITE: i32 = 136;
+| ^^^^^^^^^^^^^^^
+
+warning: `arceos_posix_api` (lib) generated 13 warnings (run `cargo fix --lib -p arceos_posix_api` to apply 3 suggestions)
+warning: unnecessary braces around block return value
+--> src/syscall_imp/fs/io.rs:1707:34
+|
+1707 | syscall_body!(sys_faccessat, { faccessat_impl(dirfd, path, mode, 0) })
+| ^^ ^^
+|
+= note: `#[warn(unused_braces)]` on by default
+help: remove these braces
+|
+1707 - syscall_body!(sys_faccessat, { faccessat_impl(dirfd, path, mode, 0) })
+1707 + syscall_body!(sys_faccessat, faccessat_impl(dirfd, path, mode, 0))
+|
+
+warning: unnecessary braces around block return value
+--> src/syscall_imp/fs/io.rs:1711:35
+|
+1711 | syscall_body!(sys_faccessat2, { faccessat_impl(dirfd, path, mode, flags) })
+| ^^ ^^
+|
+help: remove these braces
+|
+1711 - syscall_body!(sys_faccessat2, { faccessat_impl(dirfd, path, mode, flags) })
+1711 + syscall_body!(sys_faccessat2, faccessat_impl(dirfd, path, mode, flags))
+|
+
+warning: unused import: `Ordering`
+--> src/syscall_imp/task/schedule.rs:2:39
+|
+2 | use core::sync::atomic::{AtomicUsize, Ordering};
+| ^^^^^^^^
+|
+= note: `#[warn(unused_imports)]` on by default
+
+warning: unreachable statement
+--> src/mm.rs:1749:9
+|
+1747 | return Ok((interp_elf_parser.entry().into(), auxv, entry_tls));
+| -------------------------------------------------------------- any code following this expression is unreachable
+1748 | }
+1749 | / for entry in &mut auxv {
+1750 | | if entry.get_type() == kernel_elf_parser::AuxvType::BASE {
+1751 | | *entry.value_mut_ref() = interp_elf_parser.base();
+1752 | | break;
+1753 | | }
+1754 | | }
+| |_________^ unreachable statement
+|
+= note: `#[warn(unreachable_code)]` on by default
+
+warning: unused import: `MemoryAddr`
+--> src/syscall_imp/utils/sysv_ipc.rs:16:19
+|
+16 | use memory_addr::{MemoryAddr, VirtAddr, VirtAddrRange, PAGE_SIZE_4K};
+| ^^^^^^^^^^
+
+warning: unused variable: `interval_ns`
+--> src/signal.rs:1142:27
+|
+1142 | let (deadline_ns, interval_ns) = {
+| ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_interval_ns`
+|
+= note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `interval_ns`
+--> src/signal.rs:1207:27
+|
+1207 | let (deadline_ns, interval_ns) = {
+| ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_interval_ns`
+
+warning: unused variable: `debug_loops`
+--> src/signal.rs:2144:17
+|
+2144 | let mut debug_loops = 0usize;
+| ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_debug_loops`
+
+warning: variable does not need to be mutable
+--> src/signal.rs:2144:13
+|
+2144 | let mut debug_loops = 0usize;
+| ----^^^^^^^^^^^
+| |
+| help: remove this `mut`
+|
+= note: `#[warn(unused_mut)]` on by default
+
+warning: unused variable: `err`
+--> src/syscall_imp/fs/ctl.rs:1566:13
+|
+1566 | Err(err) => {
+| ^^^ help: if this is intentional, prefix it with an underscore: `_err`
+
+warning: value assigned to `waiter_ticket` is never read
+--> src/syscall_imp/fs/fd_ops.rs:839:17
+|
+839 | waiter_ticket = None;
+| ^^^^^^^^^^^^^
+|
+= help: maybe it is overwritten before being read?
+= note: `#[warn(unused_assignments)]` on by default
+
+warning: value assigned to `event_copy` is never read
+--> src/syscall_imp/fs/io.rs:1515:13
+|
+1515 | let mut event_copy = api::ctypes::epoll_event::default();
+| ^^^^^^^^^^
+|
+= help: maybe it is overwritten before being read?
+
+warning: variable does not need to be mutable
+--> src/syscall_imp/mm/mmap.rs:70:9
+|
+70 | let mut file_handle = file.inner().lock();
+| ----^^^^^^^^^^^
+| |
+| help: remove this `mut`
+
+warning: value assigned to `old_dtv` is never read
+--> src/task.rs:1324:29
+|
+1324 | let mut old_dtv = 0usize;
+| ^^^^^^^
+|
+= help: maybe it is overwritten before being read?
+
+warning: unused variable: `argc`
+--> src/task.rs:2370:9
+|
+2370 | let argc = args.len();
+| ^^^^ help: if this is intentional, prefix it with an underscore: `_argc`
+
+warning: variable does not need to be mutable
+--> src/task.rs:2711:9
+|
+2711 | let mut process_node = |node_addr: usize| {
+| ----^^^^^^^^^^^^
+| |
+| help: remove this `mut`
+
+warning: type `UserUtimbuf` is more private than the item `sys_utime`
+--> src/syscall_imp/fs/ctl.rs:1851:1
+|
+1851 | pub(crate) fn sys_utime(pathname: *const c_char, times: *const UserUtimbuf) -> isize {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ function `sys_utime` is reachable at visibility `pub(crate)`
+|
+note: but type `UserUtimbuf` is only usable at visibility `pub(self)`
+--> src/syscall_imp/fs/ctl.rs:96:1
+|
+96 | struct UserUtimbuf {
+| ^^^^^^^^^^^^^^^^^^
+= note: `#[warn(private_interfaces)]` on by default
+
+warning: type `ZombieChild` is more private than the item `TaskExt::zombie_children`
+--> src/task.rs:1009:5
+|
+1009 | pub zombie_children: Mutex>,
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `TaskExt::zombie_children` is reachable at visibility `pub`
+|
+note: but type `ZombieChild` is only usable at visibility `pub(crate)`
+--> src/task.rs:1098:1
+|
+1098 | pub(crate) struct ZombieChild {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `LA_MUSL_LOADER` is never used
+--> /coursegrader/submit/kernel/starry-next/target/riscv64gc-unknown-none-elf/release/build/starry-11a49ebb8a5f2b0a/out/embedded_runtime.rs:6:18
+|
+6 | pub(crate) const LA_MUSL_LOADER: &[u8] = include_bytes!("/coursegrader/submit/kernel/starry-next/target/riscv64gc-unknown-none-elf/releas...
+| ^^^^^^^^^^^^^^
+|
+= note: `#[warn(dead_code)]` on by default
+
+warning: constant `LA_MUSL_LIBC` is never used
+--> /coursegrader/submit/kernel/starry-next/target/riscv64gc-unknown-none-elf/release/build/starry-11a49ebb8a5f2b0a/out/embedded_runtime.rs:7:18
+|
+7 | pub(crate) const LA_MUSL_LIBC: &[u8] = include_bytes!("/coursegrader/submit/kernel/starry-next/target/riscv64gc-unknown-none-elf/release/...
+| ^^^^^^^^^^^^
+
+warning: struct `UserUtimbuf` is never constructed
+--> src/syscall_imp/fs/ctl.rs:96:8
+|
+96 | struct UserUtimbuf {
+| ^^^^^^^^^^^
+|
+= note: `UserUtimbuf` has a derived impl for the trait `Default`, but this is intentionally ignored during dead code analysis
+
+warning: function `sys_chown` is never used
+--> src/syscall_imp/fs/ctl.rs:1437:15
+|
+1437 | pub(crate) fn sys_chown(path: *const c_char, owner: u32, group: u32) -> isize {
+| ^^^^^^^^^
+
+warning: function `sys_lchown` is never used
+--> src/syscall_imp/fs/ctl.rs:1441:15
+|
+1441 | pub(crate) fn sys_lchown(path: *const c_char, owner: u32, group: u32) -> isize {
+| ^^^^^^^^^^
+
+warning: function `sys_utime` is never used
+--> src/syscall_imp/fs/ctl.rs:1851:15
+|
+1851 | pub(crate) fn sys_utime(pathname: *const c_char, times: *const UserUtimbuf) -> isize {
+| ^^^^^^^^^
+
+warning: function `sys_utimes` is never used
+--> src/syscall_imp/fs/ctl.rs:1883:15
+|
+1883 | pub(crate) fn sys_utimes(pathname: *const c_char, times: *const api::ctypes::timeval) -> isize {
+| ^^^^^^^^^^
+
+warning: function `sys_poll` is never used
+--> src/syscall_imp/fs/io.rs:1378:15
+|
+1378 | pub(crate) fn sys_poll(fds: *mut PollFd, nfds: usize, timeout_ms: i32) -> isize {
+| ^^^^^^^^
+
+warning: constant `CLOCK_PROCESS_CPUTIME_ID` is never used
+--> src/syscall_imp/task/schedule.rs:939:11
+|
+939 | const CLOCK_PROCESS_CPUTIME_ID: i32 = 2;
+| ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `CLOCK_THREAD_CPUTIME_ID` is never used
+--> src/syscall_imp/task/schedule.rs:940:11
+|
+940 | const CLOCK_THREAD_CPUTIME_ID: i32 = 3;
+| ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `BUSYBOX_TRACE_LOG_LIMIT` is never used
+--> src/syscall_imp/task/thread.rs:778:7
+|
+778 | const BUSYBOX_TRACE_LOG_LIMIT: usize = 96;
+| ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `BUSYBOX_KILL_TRACE_LOG_LIMIT` is never used
+--> src/syscall_imp/task/thread.rs:779:7
+|
+779 | const BUSYBOX_KILL_TRACE_LOG_LIMIT: usize = 64;
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: static `BUSYBOX_KILL_TRACE_LOG_COUNT` is never used
+--> src/syscall_imp/task/thread.rs:781:8
+|
+781 | static BUSYBOX_KILL_TRACE_LOG_COUNT: AtomicUsize = AtomicUsize::new(0);
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `is_busybox_trace_task` is never used
+--> src/syscall_imp/task/thread.rs:798:4
+|
+798 | fn is_busybox_trace_task(name: &str) -> bool {
+| ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `is_busybox_trace_exec_path` is never used
+--> src/syscall_imp/task/thread.rs:809:4
+|
+809 | fn is_busybox_trace_exec_path(path: &str) -> bool {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `should_trace_busybox` is never used
+--> src/syscall_imp/task/thread.rs:817:4
+|
+817 | fn should_trace_busybox() -> bool {
+| ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `should_trace_busybox_exec_target` is never used
+--> src/syscall_imp/task/thread.rs:823:4
+|
+823 | fn should_trace_busybox_exec_target(path: &str) -> bool {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `competition_script_root_is_alive` is never used
+--> src/task.rs:843:15
+|
+843 | pub(crate) fn competition_script_root_is_alive() -> bool {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `abort_current_competition_script` is never used
+--> src/task.rs:942:15
+|
+942 | pub(crate) fn abort_current_competition_script(signum: usize, reason: &str) -> bool {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `netns_lo_tag` and `netns_default_tag` are never read
+--> src/task.rs:1057:5
+|
+995 | pub struct TaskExt {
+| ------- fields in this struct
+...
+1057 | netns_lo_tag: AtomicI32,
+| ^^^^^^^^^^^^
+1058 | /// Per-netns sysctl /proc/sys/net/ipv4/conf/default/tag
+1059 | netns_default_tag: AtomicI32,
+| ^^^^^^^^^^^^^^^^^
+
+warning: methods `wait_is_stopped`, `set_leader_tid`, `netns_lo_tag`, `set_netns_lo_tag`, `netns_default_tag`, and `set_netns_default_tag` are never used
+--> src/task.rs:1776:19
+|
+1120 | impl TaskExt {
+| ------------ methods in this implementation
+...
+1776 | pub(crate) fn wait_is_stopped(&self) -> bool {
+| ^^^^^^^^^^^^^^^
+...
+1840 | pub(crate) fn set_leader_tid(&self, leader_tid: u64) {
+| ^^^^^^^^^^^^^^
+...
+2076 | pub(crate) fn netns_lo_tag(&self) -> i32 {
+| ^^^^^^^^^^^^
+...
+2080 | pub(crate) fn set_netns_lo_tag(&self, value: i32) {
+| ^^^^^^^^^^^^^^^^
+...
+2084 | pub(crate) fn netns_default_tag(&self) -> i32 {
+| ^^^^^^^^^^^^^^^^^
+...
+2088 | pub(crate) fn set_netns_default_tag(&self, value: i32) {
+| ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `wait_pid` is never used
+--> src/task.rs:2212:8
+|
+2212 | pub fn wait_pid(pid: i32) -> Result<(u64, i32), WaitStatus> {
+| ^^^^^^^^
+
+warning: function `wait_pid_status` is never used
+--> src/task.rs:2242:15
+|
+2242 | pub(crate) fn wait_pid_status(curr_task: &AxTaskRef, pid: i32) -> WaitStatus {
+| ^^^^^^^^^^^^^^^
+
+warning: `starry` (bin "starry") generated 41 warnings (run `cargo fix --bin "starry"` to apply 6 suggestions)
+Finished `release` profile [optimized] target(s) in 27.20s
+[37mrust-objcopy --binary-architecture=riscv64[0m [90m/coursegrader/submit/kernel/starry-next/starry-next_riscv64-qemu-virt.elf --strip-all -O binary /coursegrader/submit/kernel/starry-next/starry-next_riscv64-qemu-virt.bin[0m
+make[3]: Leaving directory '/coursegrader/submit/kernel/starry-next/arceos'
+make[2]: Leaving directory '/coursegrader/submit/kernel/starry-next'
+cp "/coursegrader/submit/kernel/starry-next/kernel-rv" "../kernel-rv"
+make[1]: Leaving directory '/coursegrader/submit/kernel'
+make -C kernel ARCH=loongarch OUT=../kernel-la
+make[1]: Entering directory '/coursegrader/submit/kernel'
+"/coursegrader/submit/kernel/scripts/bootstrap_starry_overlay.sh"
+cd "/coursegrader/submit/kernel/starry-next" && PATH="/opt/riscv64-linux-musl-cross/bin:/opt/loongarch64-linux-musl-cross/bin:/root/.cache/osk-toolchains/riscv64-linux-musl-cross/bin:/root/.cache/osk-toolchains/loongarch64-linux-musl-cross/bin:$PATH" RUSTUP_TOOLCHAIN=nightly-2025-01-18 make test_build ARCH=loongarch64 AX_TESTCASE=oscomp FEATURES=lwext4_rs,sched_rr APP_FEATURES=lwext4_rs
+make[2]: Entering directory '/coursegrader/submit/kernel/starry-next'
+Set AX_ROOT (ArceOS directory) to /coursegrader/submit/kernel/starry-next/arceos
+make[3]: Entering directory '/coursegrader/submit/kernel/starry-next/arceos'
+[93;1mwarning[0m: disk image "disk.img" already exists!
+make[3]: Leaving directory '/coursegrader/submit/kernel/starry-next/arceos'
+info: override toolchain for '/coursegrader/submit/kernel/starry-next' set to 'nightly-2025-01-18-x86_64-unknown-linux-gnu'
+make defconfig EXTRA_CONFIG="/coursegrader/submit/kernel/starry-next/configs/loongarch64.toml" ARCH=loongarch64
+make[3]: Entering directory '/coursegrader/submit/kernel/starry-next'
+Set AX_ROOT (ArceOS directory) to /coursegrader/submit/kernel/starry-next/arceos
+make[4]: Entering directory '/coursegrader/submit/kernel/starry-next/arceos'
+[93;1mwarning[0m: disk image "disk.img" already exists!
+make[4]: Leaving directory '/coursegrader/submit/kernel/starry-next/arceos'
+make[4]: Entering directory '/coursegrader/submit/kernel/starry-next/arceos'
+[37maxconfig-gen[0m [90mconfigs/defconfig.toml configs/platforms/loongarch64-qemu-virt.toml /coursegrader/submit/kernel/starry-next/configs/loongarch64.toml -w smp=1 -w arch=loongarch64 -w platform=loongarch64-qemu-virt -o "/coursegrader/submit/kernel/starry-next/.axconfig.toml"[0m
+make[4]: Leaving directory '/coursegrader/submit/kernel/starry-next/arceos'
+make[3]: Leaving directory '/coursegrader/submit/kernel/starry-next'
+make[3]: Entering directory '/coursegrader/submit/kernel/starry-next/arceos'
+[37maxconfig-gen[0m [90mconfigs/defconfig.toml configs/platforms/loongarch64-qemu-virt.toml /coursegrader/submit/kernel/starry-next/configs/loongarch64.toml -w smp=1 -w arch=loongarch64 -w platform=loongarch64-qemu-virt -o "/coursegrader/submit/kernel/starry-next/.axconfig.toml" -c "/coursegrader/submit/kernel/starry-next/.axconfig.toml"[0m
+[92;1mBuilding[0m App: starry-next, Arch: loongarch64, Platform: loongarch64-qemu-virt, App type: rust
+[37mcargo -C /coursegrader/submit/kernel/starry-next build[0m [90m-Z unstable-options --target loongarch64-unknown-none --target-dir /coursegrader/submit/kernel/starry-next/target --release --features "axstd/log-level-warn axstd/lwext4_rs axstd/sched_rr lwext4_rs"[0m
+warning: `/root/.cargo/config` is deprecated in favor of `config.toml`
+note: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+warning: `/root/.cargo/config` is deprecated in favor of `config.toml`
+note: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+Compiling log v0.4.21
+Compiling bitflags v2.8.0
+Compiling cfg-if v1.0.0
+Compiling axerrno v0.1.0 (/coursegrader/submit/kernel/starry-next/patches/axerrno)
+Compiling memory_addr v0.3.1
+Compiling bit_field v0.10.2
+Compiling lock_api v0.4.12
+Compiling axconfig v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axconfig)
+Compiling scopeguard v1.2.0
+Compiling const-default v1.0.0
+Compiling kernel_guard v0.1.2
+Compiling byteorder v1.5.0
+Compiling kspin v0.1.0
+Compiling rlsf v0.2.1
+Compiling page_table_entry v0.5.1 (/coursegrader/submit/kernel/starry-next/vendor/page_table_entry)
+Compiling bitmap-allocator v0.2.0 (/coursegrader/submit/kernel/starry-next/vendor/bitmap-allocator)
+Compiling buddy_system_allocator v0.10.0
+Compiling bitflags v1.3.2
+Compiling axhal v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axhal)
+Compiling spin v0.9.8
+Compiling percpu v0.2.0
+Compiling lazyinit v0.2.1
+Compiling page_table_multiarch v0.5.1 (/coursegrader/submit/kernel/starry-next/vendor/page_table_multiarch)
+Compiling linkme v0.3.31
+Compiling loongArch64 v0.2.4
+Compiling axlog v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axlog)
+Compiling allocator v0.1.1 (/coursegrader/submit/kernel/starry-next/vendor/allocator)
+Compiling handler_table v0.1.2
+Compiling static_assertions v1.1.0
+Compiling ns16550a v0.4.0
+Compiling int_ratio v0.1.1
+Compiling axalloc v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axalloc)
+Compiling zerocopy v0.7.35
+Compiling bitmaps v3.2.1
+Compiling axdriver_base v0.1.0 (https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.0#78686a7e)
+Compiling linked_list v0.1.0 (https://github.com/arceos-org/linked_list.git?tag=v0.1.0#34c8db30)
+Compiling axdriver_net v0.1.0 (https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.0#78686a7e)
+Compiling axdriver_block v0.1.0 (https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.0#78686a7e)
+Compiling axdriver v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axdriver)
+Compiling scheduler v0.1.0 (/coursegrader/submit/kernel/starry-next/patches/scheduler)
+Compiling timer_list v0.1.0
+Compiling heapless v0.7.17
+Compiling hash32 v0.2.1
+Compiling axfs_vfs v0.1.1
+Compiling stable_deref_trait v1.2.0
+Compiling lwext4_rust v0.2.0 (/coursegrader/submit/kernel/starry-next/vendor/lwext4_rust)
+warning: function `handle_user_trap_diagnostic` is never used
+--> arceos/modules/axhal/src/trap.rs:98:15
+|
+98 | pub(crate) fn handle_user_trap_diagnostic(
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+|
+= note: `#[warn(dead_code)]` on by default
+
+Compiling smoltcp v0.10.0 (https://github.com/rcore-os/smoltcp.git?rev=2ade274#2ade2747)
+Compiling num-traits v0.2.19
+Compiling axio v0.1.0
+Compiling managed v0.8.0
+Compiling cpumask v0.1.0
+Compiling axfs_ramfs v0.1.1 (/coursegrader/submit/kernel/starry-next/patches/axfs_ramfs)
+Compiling virtio-drivers v0.7.4
+Compiling axtask v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axtask)
+warning: `axhal` (lib) generated 1 warning
+Compiling axfs_devfs v0.1.1
+Compiling axns v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axns)
+Compiling fatfs v0.4.0 (https://github.com/rafalh/rust-fatfs?rev=85f06e0#85f06e08)
+warning: associated function `alloc` is never used
+--> arceos/modules/axtask/src/task.rs:525:12
+|
+524 | impl TaskStack {
+| -------------- associated function in this implementation
+525 | pub fn alloc(size: usize) -> Self {
+| ^^^^^
+|
+= note: `#[warn(dead_code)]` on by default
+
+Compiling axsync v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axsync)
+Compiling cap_access v0.1.0
+Compiling memory_set v0.3.1 (/coursegrader/submit/kernel/starry-next/vendor/memory_set)
+Compiling ctor_bare v0.2.1
+Compiling axmm v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axmm)
+Compiling chrono v0.4.39
+warning: type `SharedPageRegistry` is more private than the item `Backend::Alloc::shared`
+--> arceos/modules/axmm/src/backend/mod.rs:45:9
+|
+45 | shared: Option>,
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `Backend::Alloc::shared` is reachable at visibility `pub`
+|
+note: but type `SharedPageRegistry` is only usable at visibility `pub(crate)`
+--> arceos/modules/axmm/src/backend/alloc.rs:23:1
+|
+23 | pub(crate) struct SharedPageRegistry {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+= note: `#[warn(private_interfaces)]` on by default
+
+warning: type `CowPageRegistry` is more private than the item `Backend::Cow::pages`
+--> arceos/modules/axmm/src/backend/mod.rs:56:9
+|
+56 | pages: Arc,
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `Backend::Cow::pages` is reachable at visibility `pub`
+|
+note: but type `CowPageRegistry` is only usable at visibility `pub(crate)`
+--> arceos/modules/axmm/src/backend/alloc.rs:27:1
+|
+27 | pub(crate) struct CowPageRegistry {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type `SharedPageRegistry` is more private than the item `Backend::Shared::frames`
+--> arceos/modules/axmm/src/backend/mod.rs:61:9
+|
+61 | frames: Arc,
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `Backend::Shared::frames` is reachable at visibility `pub`
+|
+note: but type `SharedPageRegistry` is only usable at visibility `pub(crate)`
+--> arceos/modules/axmm/src/backend/alloc.rs:23:1
+|
+23 | pub(crate) struct SharedPageRegistry {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Compiling axdriver_pci v0.1.0 (https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.0#78686a7e)
+Compiling axdriver_virtio v0.1.0 (https://github.com/arceos-org/axdriver_crates.git?tag=v0.1.0#78686a7e)
+Compiling zero v0.1.3
+Compiling syscalls v0.6.18 (https://github.com/jasonwhite/syscalls.git?rev=92624de#92624de3)
+Compiling xmas-elf v0.9.1
+warning: `axtask` (lib) generated 1 warning
+Compiling arceos_posix_api v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/api/arceos_posix_api)
+Compiling axnet v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axnet)
+Compiling flatten_objects v0.2.1 (/coursegrader/submit/kernel/starry-next/vendor/flatten_objects)
+Compiling lazy_static v1.5.0
+Compiling starry v0.1.0 (/coursegrader/submit/kernel/starry-next)
+Compiling num_enum v0.7.3
+warning: starry@0.1.0: resolved musl runtime /opt/riscv64-linux-musl-cross/bin/../riscv64-linux-musl/lib/ld-musl-riscv64.so.1 via /opt/riscv64-linux-musl-cross/bin/../riscv64-linux-musl/lib/libc.so
+warning: starry@0.1.0: missing vendored embedded online refresh runtime root for arch=rv runtime=glibc, keep compiling without lib/ld-linux-riscv64-lp64d.so.1
+warning: starry@0.1.0: missing vendored embedded online refresh runtime root for arch=rv runtime=glibc, keep compiling without lib/libc.so.6
+warning: starry@0.1.0: resolved musl runtime /opt/loongarch64-linux-musl-cross/bin/../loongarch64-linux-musl/lib/ld-musl-loongarch64.so.1 via /opt/loongarch64-linux-musl-cross/bin/../loongarch64-linux-musl/lib/libc.so
+warning: starry@0.1.0: skip embedded online refresh for arch=la runtime=glibc because no runtime root was found
+warning: starry@0.1.0: skip embedded online refresh for arch=la runtime=musl because no runtime root was found
+Compiling kernel-elf-parser v0.3.0
+Compiling numeric-enum-macro v0.2.0
+warning: `axmm` (lib) generated 3 warnings
+warning: unused import: `alloc::string::String`
+--> vendor/lwext4_rust/src/ulibc.rs:3:5
+|
+3 | use alloc::string::String;
+| ^^^^^^^^^^^^^^^^^^^^^
+|
+= note: `#[warn(unused_imports)]` on by default
+
+warning: unused variable: `args`
+--> vendor/lwext4_rust/src/ulibc.rs:29:53
+|
+29 | unsafe extern "C" fn printf(str: *const c_char, mut args: ...) -> c_int {
+| ^^^^ help: if this is intentional, prefix it with an underscore: `_args`
+|
+= note: `#[warn(unused_variables)]` on by default
+
+warning: variable does not need to be mutable
+--> vendor/lwext4_rust/src/ulibc.rs:29:49
+|
+29 | unsafe extern "C" fn printf(str: *const c_char, mut args: ...) -> c_int {
+| ----^^^^
+| |
+| help: remove this `mut`
+|
+= note: `#[warn(unused_mut)]` on by default
+
+Compiling axfs v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axfs)
+warning: unused imports: `O_RDONLY` and `O_RDWR`
+--> arceos/modules/axfs/src/fs/lwext4_rust.rs:16:14
+|
+16 | O_CREAT, O_RDONLY, O_RDWR, O_TRUNC, O_WRONLY, SEEK_CUR, SEEK_END, SEEK_SET, ext4_mknod,
+| ^^^^^^^^ ^^^^^^
+|
+= note: `#[warn(unused_imports)]` on by default
+
+warning: `lwext4_rust` (lib) generated 3 warnings (run `cargo fix --lib -p lwext4_rust` to apply 2 suggestions)
+warning: methods `path_and_type` and `cached_child_type` are never used
+--> arceos/modules/axfs/src/fs/lwext4_rust.rs:164:8
+|
+141 | impl FileWrapper {
+| ---------------- methods in this implementation
+...
+164 | fn path_and_type(&self) -> (String, InodeTypes) {
+| ^^^^^^^^^^^^^
+...
+235 | fn cached_child_type(&self, path: &str) -> Option {
+| ^^^^^^^^^^^^^^^^^
+|
+= note: `#[warn(dead_code)]` on by default
+
+warning: method `copy_inner` is never used
+--> arceos/modules/axfs/src/root.rs:65:12
+|
+63 | impl CURRENT_ROOT_PATH {
+| ---------------------- method in this implementation
+64 | /// Return a copy of the inner root path.
+65 | pub fn copy_inner(&self) -> Mutex {
+| ^^^^^^^^^^
+
+warning: field `path` is never read
+--> arceos/modules/axfs/src/fops.rs:30:5
+|
+26 | pub struct File {
+| ---- field in this struct
+...
+30 | path: String,
+| ^^^^
+
+Compiling axruntime v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/modules/axruntime)
+Compiling axfeat v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/api/axfeat)
+Compiling arceos_api v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/api/arceos_api)
+Compiling axstd v0.1.0 (/coursegrader/submit/kernel/starry-next/arceos/ulib/axstd)
+warning: unused import: `alloc::vec`
+--> arceos/api/arceos_posix_api/src/imp/fs.rs:5:5
+|
+5 | use alloc::vec;
+| ^^^^^^^^^^
+|
+= note: `#[warn(unused_imports)]` on by default
+
+warning: unnecessary braces around block return value
+--> arceos/api/arceos_posix_api/src/imp/fs.rs:1976:29
+|
+1976 | syscall_body!(sys_open, { open_path(filename?, flags, mode) })
+| ^^ ^^
+|
+= note: `#[warn(unused_braces)]` on by default
+help: remove these braces
+|
+1976 - syscall_body!(sys_open, { open_path(filename?, flags, mode) })
+1976 + syscall_body!(sys_open, open_path(filename?, flags, mode))
+|
+
+warning: unused variable: `err`
+--> arceos/api/arceos_posix_api/src/imp/fs.rs:1445:21
+|
+1445 | Err(err) if write_len > 0 => break,
+| ^^^ help: if this is intentional, prefix it with an underscore: `_err`
+|
+= note: `#[warn(unused_variables)]` on by default
+
+warning: `axfs` (lib) generated 4 warnings (run `cargo fix --lib -p axfs` to apply 1 suggestion)
+warning: variable does not need to be mutable
+--> arceos/api/arceos_posix_api/src/imp/net.rs:775:21
+|
+775 | let mut socket = udpsocket.lock();
+| ----^^^^^^
+| |
+| help: remove this `mut`
+|
+= note: `#[warn(unused_mut)]` on by default
+
+warning: unreachable pattern
+--> arceos/api/arceos_posix_api/src/imp/net.rs:1219:66
+|
+1219 | 0 | ctypes::IPPROTO_TCP | ctypes::IPPROTO_SCTP | IPPROTO_SCTP_U32 => {
+| -------------------- ^^^^^^^^^^^^^^^^ no value can reach this
+| |
+| matches all the relevant values
+|
+= note: `#[warn(unreachable_patterns)]` on by default
+
+warning: unreachable pattern
+--> arceos/api/arceos_posix_api/src/imp/net.rs:1225:69
+|
+1225 | 0 | ctypes::IPPROTO_UDP | ctypes::IPPROTO_UDPLITE | IPPROTO_UDPLITE_U32 => {
+| ----------------------- ^^^^^^^^^^^^^^^^^^^ no value can reach this
+| |
+| matches all the relevant values
+
+warning: unreachable pattern
+--> arceos/api/arceos_posix_api/src/imp/net.rs:1313:70
+|
+1313 | 0 | ctypes::IPPROTO_TCP | ctypes::IPPROTO_SCTP | IPPROTO_SCTP_U32 => {
+| -------------------- ^^^^^^^^^^^^^^^^ no value can reach this
+| |
+| matches all the relevant values
+
+warning: unreachable pattern
+--> arceos/api/arceos_posix_api/src/imp/net.rs:1319:73
+|
+1319 | 0 | ctypes::IPPROTO_UDP | ctypes::IPPROTO_UDPLITE | IPPROTO_UDPLITE_U32 => {
+| ----------------------- ^^^^^^^^^^^^^^^^^^^ no value can reach this
+| |
+| matches all the relevant values
+
+warning: type `UnixSocket` is more private than the item `SocketInner::Unix::0`
+--> arceos/api/arceos_posix_api/src/imp/net.rs:686:10
+|
+686 | Unix(Arc),
+| ^^^^^^^^^^^^^^^ field `SocketInner::Unix::0` is reachable at visibility `pub(crate)`
+|
+note: but type `UnixSocket` is only usable at visibility `pub(self)`
+--> arceos/api/arceos_posix_api/src/imp/net.rs:163:1
+|
+163 | struct UnixSocket {
+| ^^^^^^^^^^^^^^^^^
+= note: `#[warn(private_interfaces)]` on by default
+
+warning: function `proc_mounts_contents` is never used
+--> arceos/api/arceos_posix_api/src/imp/fs.rs:491:4
+|
+491 | fn proc_mounts_contents() -> &'static str {
+| ^^^^^^^^^^^^^^^^^^^^
+|
+= note: `#[warn(dead_code)]` on by default
+
+warning: associated function `from_fd` is never used
+--> arceos/api/arceos_posix_api/src/imp/fs.rs:675:8
+|
+649 | impl File {
+| --------- associated function in this implementation
+...
+675 | fn from_fd(fd: c_int) -> LinuxResult> {
+| ^^^^^^^
+
+warning: constant `IPPROTO_SCTP` is never used
+--> arceos/api/arceos_posix_api/src/imp/net.rs:40:7
+|
+40 | const IPPROTO_SCTP: i32 = 132;
+| ^^^^^^^^^^^^
+
+warning: constant `IPPROTO_UDPLITE` is never used
+--> arceos/api/arceos_posix_api/src/imp/net.rs:41:7
+|
+41 | const IPPROTO_UDPLITE: i32 = 136;
+| ^^^^^^^^^^^^^^^
+
+warning: `arceos_posix_api` (lib) generated 13 warnings (run `cargo fix --lib -p arceos_posix_api` to apply 3 suggestions)
+warning: unnecessary braces around block return value
+--> src/syscall_imp/fs/io.rs:1707:34
+|
+1707 | syscall_body!(sys_faccessat, { faccessat_impl(dirfd, path, mode, 0) })
+| ^^ ^^
+|
+= note: `#[warn(unused_braces)]` on by default
+help: remove these braces
+|
+1707 - syscall_body!(sys_faccessat, { faccessat_impl(dirfd, path, mode, 0) })
+1707 + syscall_body!(sys_faccessat, faccessat_impl(dirfd, path, mode, 0))
+|
+
+warning: unnecessary braces around block return value
+--> src/syscall_imp/fs/io.rs:1711:35
+|
+1711 | syscall_body!(sys_faccessat2, { faccessat_impl(dirfd, path, mode, flags) })
+| ^^ ^^
+|
+help: remove these braces
+|
+1711 - syscall_body!(sys_faccessat2, { faccessat_impl(dirfd, path, mode, flags) })
+1711 + syscall_body!(sys_faccessat2, faccessat_impl(dirfd, path, mode, flags))
+|
+
+warning: unused import: `paging::MappingFlags`
+--> src/task.rs:27:5
+|
+27 | paging::MappingFlags,
+| ^^^^^^^^^^^^^^^^^^^^
+|
+= note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `MemoryAddr` and `VirtAddrRange`
+--> src/task.rs:35:19
+|
+35 | use memory_addr::{MemoryAddr, VirtAddr, VirtAddrRange, PAGE_SIZE_4K};
+| ^^^^^^^^^^ ^^^^^^^^^^^^^
+
+warning: unreachable statement
+--> src/mm.rs:1749:9
+|
+1747 | return Ok((interp_elf_parser.entry().into(), auxv, entry_tls));
+| -------------------------------------------------------------- any code following this expression is unreachable
+1748 | }
+1749 | / for entry in &mut auxv {
+1750 | | if entry.get_type() == kernel_elf_parser::AuxvType::BASE {
+1751 | | *entry.value_mut_ref() = interp_elf_parser.base();
+1752 | | break;
+1753 | | }
+1754 | | }
+| |_________^ unreachable statement
+|
+= note: `#[warn(unreachable_code)]` on by default
+
+warning: unused import: `MemoryAddr`
+--> src/syscall_imp/utils/sysv_ipc.rs:16:19
+|
+16 | use memory_addr::{MemoryAddr, VirtAddr, VirtAddrRange, PAGE_SIZE_4K};
+| ^^^^^^^^^^
+
+warning: variable does not need to be mutable
+--> src/mm.rs:2310:25
+|
+2310 | let mut aspace = current.task_ext().aspace.lock();
+| ----^^^^^^
+| |
+| help: remove this `mut`
+|
+= note: `#[warn(unused_mut)]` on by default
+
+warning: unused variable: `interval_ns`
+--> src/signal.rs:1142:27
+|
+1142 | let (deadline_ns, interval_ns) = {
+| ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_interval_ns`
+|
+= note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `interval_ns`
+--> src/signal.rs:1207:27
+|
+1207 | let (deadline_ns, interval_ns) = {
+| ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_interval_ns`
+
+warning: unused variable: `debug_loops`
+--> src/signal.rs:2144:17
+|
+2144 | let mut debug_loops = 0usize;
+| ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_debug_loops`
+
+warning: variable does not need to be mutable
+--> src/signal.rs:2144:13
+|
+2144 | let mut debug_loops = 0usize;
+| ----^^^^^^^^^^^
+| |
+| help: remove this `mut`
+
+warning: unused variable: `err`
+--> src/syscall_imp/fs/ctl.rs:1566:13
+|
+1566 | Err(err) => {
+| ^^^ help: if this is intentional, prefix it with an underscore: `_err`
+
+warning: value assigned to `waiter_ticket` is never read
+--> src/syscall_imp/fs/fd_ops.rs:839:17
+|
+839 | waiter_ticket = None;
+| ^^^^^^^^^^^^^
+|
+= help: maybe it is overwritten before being read?
+= note: `#[warn(unused_assignments)]` on by default
+
+warning: value assigned to `event_copy` is never read
+--> src/syscall_imp/fs/io.rs:1515:13
+|
+1515 | let mut event_copy = api::ctypes::epoll_event::default();
+| ^^^^^^^^^^
+|
+= help: maybe it is overwritten before being read?
+
+warning: variable does not need to be mutable
+--> src/syscall_imp/mm/mmap.rs:70:9
+|
+70 | let mut file_handle = file.inner().lock();
+| ----^^^^^^^^^^^
+| |
+| help: remove this `mut`
+
+warning: unused variable: `argc`
+--> src/task.rs:2370:9
+|
+2370 | let argc = args.len();
+| ^^^^ help: if this is intentional, prefix it with an underscore: `_argc`
+
+warning: variable does not need to be mutable
+--> src/task.rs:2711:9
+|
+2711 | let mut process_node = |node_addr: usize| {
+| ----^^^^^^^^^^^^
+| |
+| help: remove this `mut`
+
+warning: type `UserUtimbuf` is more private than the item `sys_utime`
+--> src/syscall_imp/fs/ctl.rs:1851:1
+|
+1851 | pub(crate) fn sys_utime(pathname: *const c_char, times: *const UserUtimbuf) -> isize {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ function `sys_utime` is reachable at visibility `pub(crate)`
+|
+note: but type `UserUtimbuf` is only usable at visibility `pub(self)`
+--> src/syscall_imp/fs/ctl.rs:96:1
+|
+96 | struct UserUtimbuf {
+| ^^^^^^^^^^^^^^^^^^
+= note: `#[warn(private_interfaces)]` on by default
+
+warning: type `ZombieChild` is more private than the item `TaskExt::zombie_children`
+--> src/task.rs:1009:5
+|
+1009 | pub zombie_children: Mutex>,
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `TaskExt::zombie_children` is reachable at visibility `pub`
+|
+note: but type `ZombieChild` is only usable at visibility `pub(crate)`
+--> src/task.rs:1098:1
+|
+1098 | pub(crate) struct ZombieChild {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `RV_MUSL_LOADER` is never used
+--> /coursegrader/submit/kernel/starry-next/target/loongarch64-unknown-none/release/build/starry-85684508033de149/out/embedded_runtime.rs:2:18
+|
+2 | pub(crate) const RV_MUSL_LOADER: &[u8] = include_bytes!("/coursegrader/submit/kernel/starry-next/target/loongarch64-unknown-none/release/...
+| ^^^^^^^^^^^^^^
+|
+= note: `#[warn(dead_code)]` on by default
+
+warning: constant `RV_MUSL_LIBC` is never used
+--> /coursegrader/submit/kernel/starry-next/target/loongarch64-unknown-none/release/build/starry-85684508033de149/out/embedded_runtime.rs:3:18
+|
+3 | pub(crate) const RV_MUSL_LIBC: &[u8] = include_bytes!("/coursegrader/submit/kernel/starry-next/target/loongarch64-unknown-none/release/bu...
+| ^^^^^^^^^^^^
+
+warning: constant `RV_GLIBC_LOADER` is never used
+--> /coursegrader/submit/kernel/starry-next/target/loongarch64-unknown-none/release/build/starry-85684508033de149/out/embedded_runtime.rs:4:18
+|
+4 | pub(crate) const RV_GLIBC_LOADER: &[u8] = &[];
+| ^^^^^^^^^^^^^^^
+
+warning: constant `RV_GLIBC_LIBC` is never used
+--> /coursegrader/submit/kernel/starry-next/target/loongarch64-unknown-none/release/build/starry-85684508033de149/out/embedded_runtime.rs:5:18
+|
+5 | pub(crate) const RV_GLIBC_LIBC: &[u8] = &[];
+| ^^^^^^^^^^^^^
+
+warning: struct `UserUtimbuf` is never constructed
+--> src/syscall_imp/fs/ctl.rs:96:8
+|
+96 | struct UserUtimbuf {
+| ^^^^^^^^^^^
+|
+= note: `UserUtimbuf` has a derived impl for the trait `Default`, but this is intentionally ignored during dead code analysis
+
+warning: function `sys_chown` is never used
+--> src/syscall_imp/fs/ctl.rs:1437:15
+|
+1437 | pub(crate) fn sys_chown(path: *const c_char, owner: u32, group: u32) -> isize {
+| ^^^^^^^^^
+
+warning: function `sys_lchown` is never used
+--> src/syscall_imp/fs/ctl.rs:1441:15
+|
+1441 | pub(crate) fn sys_lchown(path: *const c_char, owner: u32, group: u32) -> isize {
+| ^^^^^^^^^^
+
+warning: function `sys_utime` is never used
+--> src/syscall_imp/fs/ctl.rs:1851:15
+|
+1851 | pub(crate) fn sys_utime(pathname: *const c_char, times: *const UserUtimbuf) -> isize {
+| ^^^^^^^^^
+
+warning: function `sys_utimes` is never used
+--> src/syscall_imp/fs/ctl.rs:1883:15
+|
+1883 | pub(crate) fn sys_utimes(pathname: *const c_char, times: *const api::ctypes::timeval) -> isize {
+| ^^^^^^^^^^
+
+warning: function `sys_poll` is never used
+--> src/syscall_imp/fs/io.rs:1378:15
+|
+1378 | pub(crate) fn sys_poll(fds: *mut PollFd, nfds: usize, timeout_ms: i32) -> isize {
+| ^^^^^^^^
+
+warning: constant `CLOCK_PROCESS_CPUTIME_ID` is never used
+--> src/syscall_imp/task/schedule.rs:939:11
+|
+939 | const CLOCK_PROCESS_CPUTIME_ID: i32 = 2;
+| ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `CLOCK_THREAD_CPUTIME_ID` is never used
+--> src/syscall_imp/task/schedule.rs:940:11
+|
+940 | const CLOCK_THREAD_CPUTIME_ID: i32 = 3;
+| ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `BUSYBOX_TRACE_LOG_LIMIT` is never used
+--> src/syscall_imp/task/thread.rs:778:7
+|
+778 | const BUSYBOX_TRACE_LOG_LIMIT: usize = 96;
+| ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `BUSYBOX_KILL_TRACE_LOG_LIMIT` is never used
+--> src/syscall_imp/task/thread.rs:779:7
+|
+779 | const BUSYBOX_KILL_TRACE_LOG_LIMIT: usize = 64;
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: static `BUSYBOX_KILL_TRACE_LOG_COUNT` is never used
+--> src/syscall_imp/task/thread.rs:781:8
+|
+781 | static BUSYBOX_KILL_TRACE_LOG_COUNT: AtomicUsize = AtomicUsize::new(0);
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `is_busybox_trace_task` is never used
+--> src/syscall_imp/task/thread.rs:798:4
+|
+798 | fn is_busybox_trace_task(name: &str) -> bool {
+| ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `is_busybox_trace_exec_path` is never used
+--> src/syscall_imp/task/thread.rs:809:4
+|
+809 | fn is_busybox_trace_exec_path(path: &str) -> bool {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `should_trace_busybox` is never used
+--> src/syscall_imp/task/thread.rs:817:4
+|
+817 | fn should_trace_busybox() -> bool {
+| ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `should_trace_busybox_exec_target` is never used
+--> src/syscall_imp/task/thread.rs:823:4
+|
+823 | fn should_trace_busybox_exec_target(path: &str) -> bool {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `should_trace_clone08` is never used
+--> src/task.rs:171:4
+|
+171 | fn should_trace_clone08() -> bool {
+| ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `competition_script_root_is_alive` is never used
+--> src/task.rs:843:15
+|
+843 | pub(crate) fn competition_script_root_is_alive() -> bool {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `abort_current_competition_script` is never used
+--> src/task.rs:942:15
+|
+942 | pub(crate) fn abort_current_competition_script(signum: usize, reason: &str) -> bool {
+| ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `netns_lo_tag` and `netns_default_tag` are never read
+--> src/task.rs:1057:5
+|
+995 | pub struct TaskExt {
+| ------- fields in this struct
+...
+1057 | netns_lo_tag: AtomicI32,
+| ^^^^^^^^^^^^
+1058 | /// Per-netns sysctl /proc/sys/net/ipv4/conf/default/tag
+1059 | netns_default_tag: AtomicI32,
+| ^^^^^^^^^^^^^^^^^
+
+warning: methods `wait_is_stopped`, `set_leader_tid`, `netns_lo_tag`, `set_netns_lo_tag`, `netns_default_tag`, and `set_netns_default_tag` are never used
+--> src/task.rs:1776:19
+|
+1120 | impl TaskExt {
+| ------------ methods in this implementation
+...
+1776 | pub(crate) fn wait_is_stopped(&self) -> bool {
+| ^^^^^^^^^^^^^^^
+...
+1840 | pub(crate) fn set_leader_tid(&self, leader_tid: u64) {
+| ^^^^^^^^^^^^^^
+...
+2076 | pub(crate) fn netns_lo_tag(&self) -> i32 {
+| ^^^^^^^^^^^^
+...
+2080 | pub(crate) fn set_netns_lo_tag(&self, value: i32) {
+| ^^^^^^^^^^^^^^^^
+...
+2084 | pub(crate) fn netns_default_tag(&self) -> i32 {
+| ^^^^^^^^^^^^^^^^^
+...
+2088 | pub(crate) fn set_netns_default_tag(&self, value: i32) {
+| ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `wait_pid` is never used
+--> src/task.rs:2212:8
+|
+2212 | pub fn wait_pid(pid: i32) -> Result<(u64, i32), WaitStatus> {
+| ^^^^^^^^
+
+warning: function `wait_pid_status` is never used
+--> src/task.rs:2242:15
+|
+2242 | pub(crate) fn wait_pid_status(curr_task: &AxTaskRef, pid: i32) -> WaitStatus {
+| ^^^^^^^^^^^^^^^
+
+warning: `starry` (bin "starry") generated 45 warnings (run `cargo fix --bin "starry"` to apply 8 suggestions)
+Finished `release` profile [optimized] target(s) in 20.69s
+[37mrust-objcopy --binary-architecture=loongarch64[0m [90m/coursegrader/submit/kernel/starry-next/starry-next_loongarch64-qemu-virt.elf --strip-all -O binary /coursegrader/submit/kernel/starry-next/starry-next_loongarch64-qemu-virt.bin[0m
+make[3]: Leaving directory '/coursegrader/submit/kernel/starry-next/arceos'
+make[2]: Leaving directory '/coursegrader/submit/kernel/starry-next'
+cp "/coursegrader/submit/kernel/starry-next/kernel-la" "../kernel-la"
+make[1]: Leaving directory '/coursegrader/submit/kernel'
+
+QEMU CMD▲
+qemu-system-riscv64 -machine virt -kernel kernel-rv -m 1G -nographic -smp 1 -bios default -drive file=sdcard-rv.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 -no-reboot -device virtio-net-device,netdev=net -netdev user,id=net -rtc base=utc 
+qemu-system-loongarch64 -kernel kernel-la -m 1G -nographic -smp 1 -drive file=sdcard-la.img,if=none,format=raw,id=x0 -device virtio-blk-pci,drive=x0 -no-reboot -device virtio-net-pci,netdev=net0 -netdev user,id=net0 -rtc base=utc 
+点击查看/隐藏评测结果
+CONFIG▲
+{'submit_dir': '/coursegrader/submit', 'testcase_dir': '/coursegrader/testdata', 'return_code': 0, 'exec_dir': '/tmp/tmp00sit_1t', 'id_rsa_path': '/cg/id_rsa', 'debug': False, 'qemu.smp': 1, 'qemu.mem': '1G', 'qemu.timeout': 7200, 'testcase_num': 0, 'exec_src': '/tmp/tmp00sit_1t/exec.out', 'server_ip': '192.168.140.84', 'server_port': 22, 'server_password': '83953588abc', 'server_user': 'root', 'server_dev': 'QEMU'}
+time▼
+cmd▼
+cp /coursegrader/testdata/sdcard-rv.img.gz sdcard-rv.img.gz▼
+cp /coursegrader/testdata/sdcard-la.img.gz sdcard-la.img.gz▼

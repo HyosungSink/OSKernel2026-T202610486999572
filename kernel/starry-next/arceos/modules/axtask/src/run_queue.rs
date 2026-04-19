@@ -238,15 +238,15 @@ fn collect_exited_tasks(max_scan: usize) -> usize {
         // Do not hold the per-cpu queue borrow while running task destructors.
         let task = EXITED_TASKS.with_current(|exited_tasks| exited_tasks.pop_front());
         if let Some(task) = task {
-            if Arc::strong_count(&task) == 1 {
-                drop(task);
-                dropped += 1;
-            } else {
-                EXITED_TASKS.with_current(|exited_tasks| exited_tasks.push_back(task));
-            }
+            drop(task);
+            dropped += 1;
         }
     }
     dropped
+}
+
+pub(crate) fn reclaim_exited_tasks(max_scan: usize) -> usize {
+    collect_exited_tasks(max_scan)
 }
 
 impl<G: BaseGuard> Drop for AxRunQueueRef<'_, G> {

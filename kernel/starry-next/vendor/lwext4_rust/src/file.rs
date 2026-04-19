@@ -233,17 +233,8 @@ impl Ext4File {
             )
             && self.file_desc.fsize < offset as u64
         {
-            let truncate_r = unsafe { ext4_ftruncate(&mut self.file_desc, offset as u64) };
-            if truncate_r == EOK as i32 {
-                r = unsafe { ext4_fseek(&mut self.file_desc, offset, seek_type) };
-            } else {
-                error!(
-                    "ext4_ftruncate before seek failed: path={} size={} rc={}",
-                    self.file_path.to_str().unwrap_or("<invalid>"),
-                    offset,
-                    truncate_r
-                );
-            }
+            self.file_desc.fpos = offset as u64;
+            return Ok(offset as usize);
         }
         if r != EOK as i32 {
             error!(

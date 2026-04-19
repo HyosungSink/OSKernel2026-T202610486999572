@@ -515,21 +515,6 @@ impl VfsNodeOps for FileWrapper {
         let path = file.get_path().to_str().unwrap().to_string();
         file.ensure_open_for_write(path.as_str())
             .map_err(ext4_err_to_vfs)?;
-        let current_size = file.file_size();
-        if offset > current_size {
-            const GAP_FILL_CHUNK: usize = 4096;
-            let zeros = [0u8; GAP_FILL_CHUNK];
-            let mut pos = current_size;
-            file.file_seek_if_needed(current_size).map_err(ext4_err_to_vfs)?;
-            while pos < offset {
-                let write_len = ((offset - pos) as usize).min(zeros.len());
-                let written = file.file_write(&zeros[..write_len]).map_err(ext4_err_to_vfs)?;
-                if written == 0 {
-                    return Err(VfsError::Io);
-                }
-                pos += written as u64;
-            }
-        }
         file.file_seek_if_needed(offset).map_err(ext4_err_to_vfs)?;
         file.file_write(buf).map_err(ext4_err_to_vfs)
     }

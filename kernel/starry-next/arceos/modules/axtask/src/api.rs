@@ -28,6 +28,10 @@ pub type WeakAxTaskRef = Weak<AxTask>;
 
 pub use crate::task::TaskState;
 
+pub fn reclaim_exited_tasks(max_scan: usize) -> usize {
+    crate::run_queue::reclaim_exited_tasks(max_scan)
+}
+
 /// The wrapper type for [`cpumask::CpuMask`] with SMP configuration.
 pub type AxCpuMask = cpumask::CpuMask<{ axconfig::SMP }>;
 

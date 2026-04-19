@@ -66,7 +66,10 @@ fn shared_file_mapping_frames(
 
     let file_size = file.stat()?.st_size as usize;
     let page_count = length / PAGE_SIZE_4K;
-    let mut frames = Vec::with_capacity(page_count);
+    let mut frames = Vec::new();
+    frames
+        .try_reserve_exact(page_count)
+        .map_err(|_| LinuxError::ENOMEM)?;
     let mut file_handle = file.inner().lock();
 
     for page_index in 0..page_count {
@@ -412,7 +415,11 @@ pub(crate) fn sys_mmap(
             let length = core::cmp::min(copy_len, file_size.saturating_sub(offset));
             const MMAP_POPULATE_CHUNK: usize = 64 * 1024;
             let mut copied = 0usize;
-            let mut buf = vec![0u8; core::cmp::min(length.max(1), MMAP_POPULATE_CHUNK)];
+            let buf_len = core::cmp::min(length.max(1), MMAP_POPULATE_CHUNK);
+            let mut buf = Vec::new();
+            buf.try_reserve_exact(buf_len)
+                .map_err(|_| LinuxError::ENOMEM)?;
+            buf.resize(buf_len, 0);
             while copied < length {
                 let chunk_len = core::cmp::min(buf.len(), length - copied);
                 let slice = &mut buf[..chunk_len];

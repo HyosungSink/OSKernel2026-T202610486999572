@@ -52,7 +52,7 @@ const RISCV_MUSL_DTV_PTR_OFFSET_FROM_TP: usize = 8;
 static COMPETITION_FAIL_FAST: AtomicBool = AtomicBool::new(false);
 static NEXT_COMPETITION_SCRIPT_TAG: AtomicU64 = AtomicU64::new(1);
 static COMPETITION_ABORTING_SCRIPT_TAG: AtomicU64 = AtomicU64::new(0);
-static NEXT_PROCESS_ID: AtomicU64 = AtomicU64::new(1);
+static NEXT_PROCESS_ID: AtomicU64 = AtomicU64::new(0);
 static PROC_PID_MAX: AtomicU64 = AtomicU64::new(32768);
 static PRIVATE_FORK_PRESSURE_LOG_COUNT: AtomicU64 = AtomicU64::new(0);
 static LOAD_APP_OOM_BUSYBOX_LOG_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -76,6 +76,7 @@ const EXEC_PREPARE_RECLAIM_PERIOD: u64 = 128;
 
 #[derive(Clone, Copy, Default)]
 pub(crate) struct RuntimeReclaimStats {
+    pub exited_tasks: usize,
     pub stack_pages: usize,
     pub exec_cache_pages: usize,
     pub fs_cache_entries: usize,
@@ -89,6 +90,11 @@ fn competition_script_root() -> &'static Mutex<Option<AxTaskRef>> {
 fn live_tasks() -> &'static Mutex<BTreeMap<u64, WeakAxTaskRef>> {
     static LIVE_TASKS: Once<Mutex<BTreeMap<u64, WeakAxTaskRef>>> = Once::new();
     LIVE_TASKS.call_once(|| Mutex::new(BTreeMap::new()))
+}
+
+fn process_leaders() -> &'static Mutex<BTreeMap<u64, WeakAxTaskRef>> {
+    static PROCESS_LEADERS: Once<Mutex<BTreeMap<u64, WeakAxTaskRef>>> = Once::new();
+    PROCESS_LEADERS.call_once(|| Mutex::new(BTreeMap::new()))
 }
 
 fn zombie_processes() -> &'static Mutex<BTreeMap<u64, ZombieProcess>> {
@@ -165,7 +171,29 @@ pub(crate) fn log_exec_failure(path: &str, err: &AxError) {
 }
 
 fn allocate_process_id() -> usize {
-    NEXT_PROCESS_ID.fetch_add(1, Ordering::Relaxed) as usize
+    let pid_max = PROC_PID_MAX.load(Ordering::Acquire).max(1) as usize;
+    let mut candidate = NEXT_PROCESS_ID.load(Ordering::Relaxed) as usize;
+    let leaders = process_leaders().lock();
+    let zombies = zombie_processes().lock();
+
+    for _ in 0..pid_max {
+        candidate = if candidate >= pid_max {
+            1
+        } else {
+            candidate + 1
+        };
+        if !leaders.contains_key(&(candidate as u64)) && !zombies.contains_key(&(candidate as u64)) {
+            NEXT_PROCESS_ID.store(candidate as u64, Ordering::Relaxed);
+            return candidate;
+        }
+    }
+
+    warn!(
+        "allocate_process_id exhausted pid space: pid_max={} last_pid={}",
+        pid_max,
+        NEXT_PROCESS_ID.load(Ordering::Relaxed)
+    );
+    1
 }
 
 fn should_trace_clone08() -> bool {
@@ -206,16 +234,21 @@ pub(crate) fn user_task_kernel_stack_size() -> usize {
 
 pub(crate) fn reclaim_runtime_memory_detail(reason: &str) -> RuntimeReclaimStats {
     let stats = RuntimeReclaimStats {
+        exited_tasks: axtask::reclaim_exited_tasks(usize::MAX),
         stack_pages: axtask::reclaim_task_stack_cache(0),
         exec_cache_pages: crate::mm::reclaim_exec_caches(),
         fs_cache_entries: axfs::api::reclaim_caches(),
     };
-    if (stats.stack_pages > 0 || stats.exec_cache_pages > 0 || stats.fs_cache_entries > 0)
+    if (stats.exited_tasks > 0
+        || stats.stack_pages > 0
+        || stats.exec_cache_pages > 0
+        || stats.fs_cache_entries > 0)
         && should_log_runtime_reclaim()
     {
         warn!(
-            "runtime reclaim reason={} reclaimed_stack_pages={} reclaimed_exec_cache_pages={} reclaimed_fs_cache_entries={}",
+            "runtime reclaim reason={} reclaimed_exited_tasks={} reclaimed_stack_pages={} reclaimed_exec_cache_pages={} reclaimed_fs_cache_entries={}",
             reason,
+            stats.exited_tasks,
             stats.stack_pages,
             stats.exec_cache_pages,
             stats.fs_cache_entries
@@ -464,6 +497,7 @@ fn should_reject_private_fork_for_low_memory(
     }
 
     let reserve_pages = private_fork_low_memory_reserve_pages(aspace);
+    let deny_reserve_pages = reserve_pages.saturating_div(5).max(24);
     let mut available_pages = global_allocator().available_pages();
     let low_watermark = runtime_reclaim_low_watermark_pages();
     let reclaim_threshold = reserve_pages.saturating_mul(4).clamp(128, low_watermark.max(128));
@@ -486,31 +520,33 @@ fn should_reject_private_fork_for_low_memory(
             );
         }
     }
-    if available_pages > reserve_pages {
+    if available_pages >= deny_reserve_pages {
         return false;
     }
 
     let reclaimed_stack_pages = axtask::reclaim_task_stack_cache(0);
     let reclaimed_exec_cache_pages = crate::mm::reclaim_exec_caches();
     available_pages = global_allocator().available_pages();
-    if available_pages > reserve_pages {
+    if available_pages >= deny_reserve_pages {
         debug!(
-            "private fork resumed after reclaim: available_pages={} reclaimed_stack_pages={} reclaimed_exec_cache_pages={} reserve_pages={}",
+            "private fork resumed after reclaim: available_pages={} reclaimed_stack_pages={} reclaimed_exec_cache_pages={} reserve_pages={} deny_reserve_pages={}",
             available_pages,
             reclaimed_stack_pages,
             reclaimed_exec_cache_pages,
-            reserve_pages
+            reserve_pages,
+            deny_reserve_pages
         );
         return false;
     }
 
     if should_log_private_fork_pressure() {
         warn!(
-            "private fork denied under memory pressure: available_pages={} reclaimed_stack_pages={} reclaimed_exec_cache_pages={} reserve_pages={} total_area_size={} area_count={}",
+            "private fork denied under memory pressure: available_pages={} reclaimed_stack_pages={} reclaimed_exec_cache_pages={} reserve_pages={} deny_reserve_pages={} total_area_size={} area_count={}",
             available_pages,
             reclaimed_stack_pages,
             reclaimed_exec_cache_pages,
             reserve_pages,
+            deny_reserve_pages,
             aspace.total_area_size(),
             aspace.area_count(),
         );
@@ -537,12 +573,26 @@ pub(crate) fn register_live_task(task: &AxTaskRef) {
         .lock()
         .insert(task.id().as_u64(), Arc::downgrade(task));
     if task_is_process_leader(task) {
+        process_leaders()
+            .lock()
+            .insert(task.task_ext().proc_id as u64, Arc::downgrade(task));
         ensure_proc_pid_entries(task.task_ext().proc_id as u64);
     }
 }
 
-pub(crate) fn unregister_live_task(tid: u64) {
-    live_tasks().lock().remove(&tid);
+pub(crate) fn unregister_live_task(task: &AxTaskRef) {
+    live_tasks().lock().remove(&task.id().as_u64());
+    if task_is_process_leader(task) {
+        let pid = task.task_ext().proc_id as u64;
+        let mut leaders = process_leaders().lock();
+        let should_remove = leaders
+            .get(&pid)
+            .and_then(|leader| leader.upgrade())
+            .is_none_or(|leader| leader.id().as_u64() == task.id().as_u64());
+        if should_remove {
+            leaders.remove(&pid);
+        }
+    }
 }
 
 pub(crate) fn register_zombie_process(zombie: ZombieProcess) {
@@ -570,31 +620,17 @@ pub(crate) fn find_live_task_by_tid(tid: u64) -> Option<AxTaskRef> {
 }
 
 pub(crate) fn find_process_leader_by_pid(pid: usize) -> Option<AxTaskRef> {
-    let mut stale = Vec::new();
-    let mut found = None;
-    {
-        let tasks = live_tasks().lock();
-        for (tid, task) in tasks.iter() {
-            let Some(task) = task.upgrade() else {
-                stale.push(*tid);
-                continue;
-            };
-            if task_is_live(&task)
-                && task.task_ext().proc_id == pid
-                && task_is_process_leader(&task)
-            {
-                found = Some(task);
-                break;
-            }
-        }
+    let pid = pid as u64;
+    let mut leaders = process_leaders().lock();
+    let task = leaders.get(&pid).and_then(|task| task.upgrade());
+    if task.as_ref().is_some_and(|task| {
+        task_is_live(task) && task_is_process_leader(task) && task.task_ext().proc_id as u64 == pid
+    }) {
+        task
+    } else {
+        leaders.remove(&pid);
+        None
     }
-    if !stale.is_empty() {
-        let mut tasks = live_tasks().lock();
-        for tid in stale {
-            tasks.remove(&tid);
-        }
-    }
-    found
 }
 
 pub(crate) fn is_exec_path_in_use(path: &str) -> bool {
@@ -704,27 +740,29 @@ pub(crate) fn thread_group_tasks(proc_id: usize) -> Vec<AxTaskRef> {
 }
 
 pub(crate) fn process_leader_tasks() -> Vec<AxTaskRef> {
-    let mut stale = Vec::new();
     let mut leaders = Vec::new();
+    let mut stale = Vec::new();
     {
-        let tasks = live_tasks().lock();
-        for (tid, task) in tasks.iter() {
+        let process_leaders = process_leaders().lock();
+        for (pid, task) in process_leaders.iter() {
             let Some(task) = task.upgrade() else {
-                stale.push(*tid);
+                stale.push(*pid);
                 continue;
             };
-            if !task_is_live(&task) {
-                continue;
-            }
-            if task_is_process_leader(&task) {
+            if task_is_live(&task)
+                && task_is_process_leader(&task)
+                && task.task_ext().proc_id as u64 == *pid
+            {
                 leaders.push(task);
+            } else {
+                stale.push(*pid);
             }
         }
     }
     if !stale.is_empty() {
-        let mut tasks = live_tasks().lock();
-        for tid in stale {
-            tasks.remove(&tid);
+        let mut process_leaders = process_leaders().lock();
+        for pid in stale {
+            process_leaders.remove(&pid);
         }
     }
     leaders
@@ -1216,10 +1254,24 @@ impl TaskExt {
         let clone_flags = CloneFlags::from_bits_truncate((flags & !0x3f) as u32);
         #[cfg(target_arch = "riscv64")]
         let trace_clone08 = should_trace_clone08() && current().name().contains("clone08");
+        let trace_fork13 = false;
         debug!(
             "clone_task raw_flags={:#x} parsed_flags={:?} stack={:?}",
             flags, clone_flags, stack
         );
+        if trace_fork13 {
+            warn!(
+                "[fork13-clone-task] enter task={} pid={} flags={:#x} parsed={:?} stack={:?} ptid={:#x} tls={:#x} ctid={:#x}",
+                current().id_name(),
+                current().task_ext().proc_id,
+                flags,
+                clone_flags,
+                stack,
+                ptid,
+                tls,
+                ctid,
+            );
+        }
         let child_task_name = current().name().to_string();
         {
             let current_task = current();
@@ -1517,6 +1569,16 @@ impl TaskExt {
             self.exec_image_base(),
             self.exec_path(),
         );
+        if trace_fork13 {
+            warn!(
+                "[fork13-clone-task] child ids return_tid={} new_proc_id={} child_visible_tid={} leader_tid={} share_aspace={}",
+                return_id,
+                new_proc_id,
+                child_visible_tid,
+                new_leader_tid,
+                share_aspace,
+            );
+        }
         new_task_ext.set_exit_signal((flags & 0x3f) as u64);
         new_task_ext.set_heap_top(current_heap_top);
         new_task_ext.set_process_group(self.process_group());
@@ -2263,6 +2325,8 @@ pub(crate) fn wait_child(selector: WaitChildSelector) -> Result<(u64, i32), Wait
         if let Some(index) = zombie_index {
             let zombie = zombies.remove(index);
             unregister_zombie_process(zombie.pid);
+            drop(zombies);
+            let _ = axtask::reclaim_exited_tasks(usize::MAX);
             info!(
                 "wait pid _{}_ with code _{}_",
                 zombie.pid, zombie.wait_status
@@ -2598,7 +2662,7 @@ pub(crate) fn exit_current_task(
         crate::syscall_imp::cleanup_all_fd_tracking_for_current_process();
         close_all_fds_fast();
     }
-    unregister_live_task(tid);
+    unregister_live_task(current().as_task_ref());
     if is_thread_group_leader {
         remove_proc_pid_entries(current().task_ext().proc_id as u64);
     }

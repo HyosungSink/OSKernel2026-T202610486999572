@@ -417,6 +417,14 @@ pub fn remount(path: &str, readonly: bool, kind: PathMountKind) -> io::Result<()
     crate::root::remount(path, readonly, kind)
 }
 
+pub fn move_mount(from: &str, to: &str) -> io::Result<()> {
+    crate::root::move_mount(from, to)
+}
+
+pub fn bind_mount(from: &str, to: &str) -> io::Result<()> {
+    crate::root::bind_mount(from, to)
+}
+
 pub fn mount_ramfs_with_max_bytes(
     path: &str,
     readonly: bool,

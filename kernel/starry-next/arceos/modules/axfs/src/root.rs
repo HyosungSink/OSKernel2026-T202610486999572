@@ -97,7 +97,7 @@ const MIB: usize = 1024 * 1024;
 
 #[cfg(feature = "ramfs")]
 fn root_tmp_ramfs_limit() -> Option<usize> {
-    Some((axconfig::plat::PHYS_MEMORY_SIZE / 4 * 3).clamp(128 * MIB, 768 * MIB))
+    Some((axconfig::plat::PHYS_MEMORY_SIZE / 2).clamp(256 * MIB, 768 * MIB))
 }
 
 #[cfg(feature = "ramfs")]
@@ -183,6 +183,18 @@ impl MountPoint {
             readonly,
             kind,
             auto_umount: true,
+            access_seq: 0,
+            expire_seq: None,
+        }
+    }
+
+    pub fn bind_alias(path: String, fs: Arc<dyn VfsOps>, readonly: bool, kind: MountedFsKind) -> Self {
+        Self {
+            path,
+            fs,
+            readonly,
+            kind,
+            auto_umount: false,
             access_seq: 0,
             expire_seq: None,
         }
@@ -274,12 +286,56 @@ impl RootDirectory {
         Ok(())
     }
 
+    pub fn move_mount(&self, from: &str, to: &str) -> AxResult {
+        if from == "/" || to == "/" {
+            return ax_err!(InvalidInput, "cannot move root filesystem");
+        }
+        let mut mounts = self.mounts.write();
+        let Some(index) = mounts.iter().position(|mp| mp.path == from) else {
+            return ax_err!(NotFound, "mount point not found");
+        };
+        if mounts.iter().any(|mp| mp.path == to) {
+            return ax_err!(ResourceBusy, "destination mount point already exists");
+        }
+        mounts[index].path = to.into();
+        mounts[index].access_seq = 0;
+        mounts[index].expire_seq = None;
+        Ok(())
+    }
+
+    pub fn bind_mount(&self, from: &str, to: &str) -> AxResult {
+        if from == "/" || to == "/" {
+            return ax_err!(InvalidInput, "cannot bind root filesystem");
+        }
+        let mut mounts = self.mounts.write();
+        let Some(index) = mounts.iter().position(|mp| mp.path == from) else {
+            return ax_err!(NotFound, "bind source mount point not found");
+        };
+        if mounts.iter().any(|mp| mp.path == to) {
+            return ax_err!(ResourceBusy, "destination mount point already exists");
+        }
+        let (fs, readonly, kind) = {
+            let source = &mounts[index];
+            (source.fs.clone(), source.readonly, source.kind)
+        };
+        mounts.push(MountPoint::bind_alias(
+            to.into(),
+            fs,
+            readonly,
+            kind,
+        ));
+        Ok(())
+    }
+
     pub fn umount(&self, path: &str) -> AxResult {
         let mut mounts = self.mounts.write();
         let Some(index) = mounts.iter().position(|mp| mp.path == path) else {
             return ax_err!(NotFound, "mount point not found");
         };
         let mut mount = mounts.remove(index);
+        if !mount.auto_umount {
+            return Ok(());
+        }
         mount.auto_umount = false;
         match mount.fs.umount() {
             Ok(()) => Ok(()),
@@ -418,7 +474,10 @@ impl RootDirectory {
         if max_len == 0 {
             f(self.main_fs.clone(), path) // not matched any mount point
         } else {
-            f(self.mounts.read()[idx].fs.clone(), &path[max_len..]) // matched at `idx`
+            f(
+                self.mounts.read()[idx].fs.clone(),
+                path[max_len..].trim_start_matches('/'),
+            ) // matched at `idx`
         }
     }
 
@@ -432,7 +491,7 @@ impl RootDirectory {
             let mount_path_len = mounts[index].path.len() - 1;
             (
                 mounts[index].fs.clone(),
-                &trimmed[mount_path_len..],
+                trimmed[mount_path_len..].trim_start_matches('/'),
                 Some(index),
             )
         } else {
@@ -1082,6 +1141,18 @@ pub(crate) fn mount_ramfs(path: &str, readonly: bool, remount: bool) -> AxResult
 pub(crate) fn remount(path: &str, readonly: bool, kind: MountedFsKind) -> AxResult {
     let path = normalize_mount_path(path)?;
     ROOT_DIR.remount(path.as_str(), readonly, kind)
+}
+
+pub(crate) fn move_mount(from: &str, to: &str) -> AxResult {
+    let from = normalize_mount_path(from)?;
+    let to = normalize_mount_path(to)?;
+    ROOT_DIR.move_mount(from.as_str(), to.as_str())
+}
+
+pub(crate) fn bind_mount(from: &str, to: &str) -> AxResult {
+    let from = normalize_mount_path(from)?;
+    let to = normalize_mount_path(to)?;
+    ROOT_DIR.bind_mount(from.as_str(), to.as_str())
 }
 
 pub(crate) fn mount_fatfs(path: &str, source: &str, readonly: bool, remount: bool) -> AxResult {

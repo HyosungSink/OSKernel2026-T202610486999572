@@ -42,20 +42,11 @@ __pycache__/
 *.py[cod]
 /tools/__pycache__/
 
-# Generated runtime-refresh byproducts from local full-suite runs.
-/kernel/starry-next/embedded-runtime-refresh/.osk_refresh_stamp
-/kernel/starry-next/embedded-runtime-refresh/*/*/.busybox_testcode.sh.raw
-/kernel/starry-next/embedded-runtime-refresh/*/*/busybox
-/kernel/starry-next/embedded-runtime-refresh/*/*/busybox_cmd.txt
-/kernel/starry-next/embedded-runtime-refresh/*/*/busybox_testcode.sh
-/kernel/starry-next/embedded-runtime-refresh/*/*/lib/
-
 # Common editor/OS temp files.
 *.swp
 *~
 .DS_Store
 Thumbs.db
-docs/
-logs/
+
 # Hidden for test
 !kernel/starry-next/vendor/**/[Rr][Ee][Aa][Dd][Mm][Ee].*

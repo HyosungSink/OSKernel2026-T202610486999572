@@ -11,6 +11,7 @@ use spin::RwLock;
 use crate::FsQuota;
 
 const CHUNK_SIZE: usize = 4 * 1024;
+const MAX_RESERVED_FALLOCATE_CHUNKS: usize = 4096;
 static LARGE_RAMFS_WRITE_LOGGED: AtomicBool = AtomicBool::new(false);
 
 struct FileContent {
@@ -118,10 +119,12 @@ impl FileNode {
         let start_chunk = offset / CHUNK_SIZE;
         let end_chunk = end.div_ceil(CHUNK_SIZE);
         let new_chunks = content.missing_reserved_chunks(start_chunk, end_chunk);
-        self.quota.reserve(new_chunks * CHUNK_SIZE)?;
-        for chunk_idx in start_chunk..end_chunk {
-            if !content.chunks.contains_key(&chunk_idx) {
-                content.reserved_chunks.insert(chunk_idx);
+        if new_chunks <= MAX_RESERVED_FALLOCATE_CHUNKS {
+            self.quota.reserve(new_chunks * CHUNK_SIZE)?;
+            for chunk_idx in start_chunk..end_chunk {
+                if !content.chunks.contains_key(&chunk_idx) {
+                    content.reserved_chunks.insert(chunk_idx);
+                }
             }
         }
         if !keep_size {

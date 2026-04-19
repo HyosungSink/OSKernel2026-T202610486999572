@@ -1,0 +1,52 @@
+root@30b6c2b58ee0:/OSKernel2026# python3 tools/run_full_local_suite.py --skip-ltp
+[stage] build kernels (23.5s)
+[stage] reuse rootfs la-glibc (0.0s)
+[stage] build rootfs la-musl (38.9s)
+[stage] build rootfs rv-glibc (55.1s)
+[stage] build rootfs rv-musl (43.7s)
+[stage] build official rootfs rv (0.0s)
+[case] glibc-rv-basic 1.6s points 102/102
+[case] glibc-rv-busybox 5.8s points 55/55
+[case] glibc-rv-cyclictest 9.6s points 6/6
+[case] glibc-rv-iozone 1m43.4s points 8/8
+[case] glibc-rv-iperf 13.6s points 6/6
+[case] glibc-rv-libcbench 6.8s points 27/27
+[case] glibc-rv-libctest 16.3s points 217/217
+[case] glibc-rv-lmbench 9.2s points 24/24
+[case] glibc-rv-lua 2.0s points 9/9
+[case] glibc-rv-netperf 10.4s points 5/5
+[case] musl-rv-basic 1.8s points 102/102
+[case] musl-rv-busybox 4.2s points 55/55
+[case] musl-rv-cyclictest 8.0s points 6/6
+[case] musl-rv-iozone 1m41.6s points 8/8
+[case] musl-rv-iperf 13.4s points 6/6
+[case] musl-rv-libcbench 9.6s points 27/27
+[case] musl-rv-libctest 16.5s points 217/217
+[case] musl-rv-lmbench 9.8s points 24/24
+[case] musl-rv-lua 2.0s points 9/9
+[case] musl-rv-netperf 10.0s points 5/5
+[stage] build official rootfs la (0.0s)
+[case] glibc-la-basic 2.4s points 102/102
+[case] glibc-la-busybox 7.6s points 55/55
+[case] glibc-la-cyclictest 22.4s points 6/6
+[case] glibc-la-iozone 1m39.4s points 8/8
+[case] glibc-la-iperf 14.0s points 6/6
+[case] glibc-la-libcbench 5.2s points 27/27
+[case] glibc-la-libctest 21.7s points 217/217
+[case] glibc-la-lmbench 18.4s points 24/24
+[case] glibc-la-lua 2.8s points 9/9
+[case] glibc-la-netperf 10.8s points 5/5
+[case] musl-la-basic 2.4s points 102/102
+[case] musl-la-busybox 5.4s points 55/55
+[case] musl-la-cyclictest 9.0s points 6/6
+[case] musl-la-iozone 1m43.0s points 8/8
+[case] musl-la-iperf 29.8s points 6/6
+[case] musl-la-libcbench 5.0s points 27/27
+[case] musl-la-libctest 25.9s points 217/217
+[case] musl-la-lmbench 16.4s points 24/24
+[case] musl-la-lua 2.6s points 9/9
+[case] musl-la-netperf 10.2s points 5/5
+[logs] report: dev/full-suite/score.txt
+[logs] logs: dev/full-suite/logs
+[summary] samples pass=40 fail=0 error=0 timeout=0 skip=0
+[summary] points 1836/1836

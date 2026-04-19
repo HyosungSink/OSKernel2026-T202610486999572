@@ -83,6 +83,10 @@ fn should_report_epoll_ltp_progress(exec_path: &str) -> bool {
     false
 }
 
+fn should_trace_fork13() -> bool {
+    false
+}
+
 struct PidFd {
     pid: usize,
     nonblocking: bool,
@@ -1855,7 +1859,24 @@ pub(crate) fn sys_clone(
 ) -> isize {
     syscall_body!(sys_clone, {
         let curr_task = current();
+        let trace_fork13 = should_trace_fork13();
         let report_epoll_progress = should_report_epoll_ltp_progress(curr_task.name());
+        #[cfg(target_arch = "riscv64")]
+        if trace_fork13 {
+            warn!(
+                "[fork13-clone] task={} pid={} flags={:#x} user_stack={:#x} ptid={:#x} arg3={:#x} arg4={:#x} sp={:#x} ra={:#x} s0={:#x}",
+                curr_task.id_name(),
+                curr_task.task_ext().proc_id,
+                flags,
+                user_stack,
+                ptid,
+                arg3,
+                arg4,
+                tf.get_sp(),
+                tf.regs.ra,
+                tf.regs.s0,
+            );
+        }
         #[cfg(target_arch = "riscv64")]
         if should_trace_riscv_libcbench() && take_riscv_libcbench_trace_slot(64) {
             warn!(
@@ -1950,6 +1971,18 @@ pub(crate) fn sys_clone(
                 }
                 LinuxError::from(err)
             })?;
+        #[cfg(target_arch = "riscv64")]
+        if trace_fork13 {
+            warn!(
+                "[fork13-clone] ok parent_task={} parent_pid={} child_tid={} ret_sp={:#x} ret_ra={:#x} ret_s0={:#x}",
+                curr_task.id_name(),
+                curr_task.task_ext().proc_id,
+                new_task_id,
+                tf.get_sp(),
+                tf.regs.ra,
+                tf.regs.s0,
+            );
+        }
         #[cfg(target_arch = "riscv64")]
         if should_trace_riscv_libcbench() && take_riscv_libcbench_trace_slot(64) {
             warn!(
@@ -2263,6 +2296,7 @@ pub(crate) fn sys_wait4(pid: i32, exit_code_ptr: *mut i32, option: u32) -> isize
     syscall_body!(sys_wait4, {
         let option_flag = WaitFlags::from_bits(option).ok_or(LinuxError::EINVAL)?;
         let curr = current();
+        let trace_fork13 = should_trace_fork13();
         let selector = wait_child_selector_from_waitpid(curr.as_task_ref(), pid)?;
         let report_epoll_progress = should_report_epoll_ltp_progress(curr.name());
         if let Some(slot) = take_busybox_trace_slot() {
@@ -2329,6 +2363,21 @@ pub(crate) fn sys_wait4(pid: i32, exit_code_ptr: *mut i32, option: u32) -> isize
             );
         }
         loop {
+            #[cfg(target_arch = "riscv64")]
+            if trace_fork13 {
+                let trap =
+                    crate::task::read_trapframe_from_kstack(curr.get_kernel_stack_top().unwrap());
+                warn!(
+                    "[fork13-wait4] task={} pid={} status_ptr={:#x} option={:#x} sp={:#x} ra={:#x} s0={:#x}",
+                    curr.id_name(),
+                    pid,
+                    exit_code_ptr as usize,
+                    option,
+                    trap.get_sp(),
+                    trap.regs.ra,
+                    trap.regs.s0,
+                );
+            }
             if let Some((child_pid, wait_status)) =
                 wait4_child_state_event(selector, option_flag, true)
             {

@@ -570,8 +570,13 @@ struct PageBackedBytes {
 
 impl PageBackedBytes {
     fn from_slice(data: &[u8]) -> AxResult<Self> {
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(data.len())
+            .map_err(|_| AxError::NoMemory)?;
+        bytes.extend_from_slice(data);
         Ok(Self {
-            bytes: data.to_vec(),
+            bytes,
         })
     }
 
@@ -582,7 +587,11 @@ impl PageBackedBytes {
             return Self::from_slice(&[]);
         }
 
-        let mut bytes = vec![0u8; len];
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(len)
+            .map_err(|_| AxError::NoMemory)?;
+        bytes.resize(len, 0);
         file.read_exact(&mut bytes)?;
         Ok(Self { bytes })
     }
@@ -735,6 +744,9 @@ fn shared_exec_segment_frames(
 
     let seg_pad = seg_vaddr.align_offset_4k();
     let mut frames = Vec::new();
+    frames
+        .try_reserve_exact(seg_size / PAGE_SIZE_4K)
+        .map_err(|_| AxError::NoMemory)?;
     for page in PageIter4K::new(seg_start, seg_start + seg_size).unwrap() {
         let frame = alloc_user_frame(true).ok_or(AxError::NoMemory)?;
         let page_off = page.as_usize() - seg_start.as_usize();
@@ -2194,15 +2206,22 @@ fn handle_page_fault(vaddr: VirtAddr, access_flags: MappingFlags, is_user: bool)
         };
         let mut handled = try_handle_fault();
         if !handled && is_user && global_allocator().available_pages() == 0 {
-            let reclaimed_pages = axtask::reclaim_task_stack_cache(0);
-            if reclaimed_pages > 0 {
+            let reclaimed = crate::task::reclaim_runtime_memory_detail("page_fault_oom");
+            if reclaimed.exited_tasks > 0
+                || reclaimed.stack_pages > 0
+                || reclaimed.exec_cache_pages > 0
+                || reclaimed.fs_cache_entries > 0
+            {
                 warn!(
-                    "page fault retry after reclaim: task={} pid={} vaddr={:#x} access={:?} reclaimed_pages={}",
+                    "page fault retry after runtime reclaim: task={} pid={} vaddr={:#x} access={:?} reclaimed_exited_tasks={} reclaimed_stack_pages={} reclaimed_exec_cache_pages={} reclaimed_fs_cache_entries={}",
                     current.id_name(),
                     current.task_ext().proc_id,
                     vaddr,
                     access_flags,
-                    reclaimed_pages,
+                    reclaimed.exited_tasks,
+                    reclaimed.stack_pages,
+                    reclaimed.exec_cache_pages,
+                    reclaimed.fs_cache_entries,
                 );
                 handled = try_handle_fault();
             }

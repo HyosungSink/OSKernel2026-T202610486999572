@@ -1062,12 +1062,26 @@ pub(crate) fn sys_mount(
         None
     }
 
-    let source = read_user_path(source).unwrap_or_default();
+    let source = if source.is_null() {
+        String::new()
+    } else {
+        match read_user_path(source) {
+            Ok(path) => path,
+            Err(err) => return -(err.code() as isize),
+        }
+    };
     let target = match read_user_path(target) {
         Ok(path) => path,
-        Err(_) => return LinuxError::EFAULT.code() as isize,
+        Err(err) => return -(err.code() as isize),
     };
-    let fs_type = read_user_path(fs_type).unwrap_or_default();
+    let fs_type = if fs_type.is_null() {
+        String::new()
+    } else {
+        match read_user_path(fs_type) {
+            Ok(path) => path,
+            Err(err) => return -(err.code() as isize),
+        }
+    };
     let mount_data = if data.is_null() {
         None
     } else {
@@ -1076,30 +1090,81 @@ pub(crate) fn sys_mount(
 
     syscall_body!(sys_mount, {
         const MS_RDONLY: usize = 0x1;
+        const MS_BIND: usize = 0x1000;
+        const MS_MOVE: usize = 0x2000;
         const MS_REMOUNT: usize = 0x20;
+        const MS_PRIVATE: usize = 1 << 18;
         let readonly = flags & MS_RDONLY != 0;
         let remount = flags & MS_REMOUNT != 0;
+        let bind_mount = flags & MS_BIND != 0;
+        let move_mount = flags & MS_MOVE != 0;
+        let private_mount = flags & MS_PRIVATE != 0;
+
+        validate_path_components(target.as_str())?;
+        let absolute_target = absolute_umount_target_path(target.as_str())?;
+        let target_attr = axfs::api::metadata_raw_nofollow(absolute_target.as_str())
+            .map_err(LinuxError::from)?;
+        if !target_attr.is_dir() {
+            return Err(LinuxError::ENOTDIR);
+        }
+
+        if bind_mount {
+            let source = absolute_mount_source_path(source.as_str())?;
+            let source_attr = axfs::api::metadata_raw_nofollow(source.as_str())
+                .map_err(LinuxError::from)?;
+            if !source_attr.is_dir() {
+                return Err(LinuxError::EINVAL);
+            }
+            if source == absolute_target {
+                return Ok(0);
+            }
+            axfs::api::bind_mount(source.as_str(), absolute_target.as_str())
+                .map_err(LinuxError::from)?;
+            return Ok(0);
+        }
+
+        if private_mount {
+            return Ok(0);
+        }
+
+        if move_mount {
+            let source = absolute_mount_source_path(source.as_str())?;
+            axfs::api::move_mount(source.as_str(), absolute_target.as_str())
+                .map_err(LinuxError::from)?;
+            clear_xattrs_under_mount(source.as_str());
+            clear_xattrs_under_mount(absolute_target.as_str());
+            return Ok(0);
+        }
+
         if remount {
+            if !axfs::api::mount_point_exists(absolute_target.as_str()).map_err(LinuxError::from)? {
+                return Err(LinuxError::EINVAL);
+            }
+            if readonly
+                && arceos_posix_api::has_open_writable_file_under(absolute_target.as_str())
+            {
+                return Err(LinuxError::EBUSY);
+            }
             let kind = match fs_type.as_str() {
                 "tmpfs" | "ramfs" | "overlay" => axfs::api::PathMountKind::Ramfs,
                 "vfat" | "fat" => axfs::api::PathMountKind::Fat,
                 "ext2" | "ext3" | "ext4" => axfs::api::PathMountKind::Ext4,
                 "cgroup2" => axfs::api::PathMountKind::Ramfs,
-                _ => axfs::api::path_mount_kind(target.as_str()),
+                _ => axfs::api::path_mount_kind(absolute_target.as_str()),
             };
-            axfs::api::remount(target.as_str(), readonly, kind).map_err(LinuxError::from)?;
+            axfs::api::remount(absolute_target.as_str(), readonly, kind)
+                .map_err(LinuxError::from)?;
             return Ok(0);
         }
         if flags & MS_REMOUNT == 0
             && fs_type != "cgroup2"
-            && axfs::api::mount_point_exists(target.as_str()).map_err(LinuxError::from)?
+            && axfs::api::mount_point_exists(absolute_target.as_str()).map_err(LinuxError::from)?
         {
             return Err(LinuxError::EBUSY);
         }
         if !matches!(
             fs_type.as_str(),
-            ""
-                | "tmpfs"
+            "tmpfs"
                 | "ramfs"
                 | "overlay"
                 | "cgroup2"
@@ -1109,35 +1174,42 @@ pub(crate) fn sys_mount(
                 | "ext3"
                 | "ext4"
         ) {
-            return Err(LinuxError::ENODEV);
+            return if fs_type.is_empty() {
+                Err(LinuxError::EINVAL)
+            } else {
+                Err(LinuxError::ENODEV)
+            };
         }
-        info!("mount source={source} target={target} fstype={fs_type}");
+        info!("mount source={source} target={absolute_target} fstype={fs_type}");
         if fs_type == "cgroup2" {
-            if !axfs::api::absolute_path_exists(target.as_str()) {
-                axfs::api::create_dir(target.as_str()).map_err(LinuxError::from)?;
+            if !axfs::api::absolute_path_exists(absolute_target.as_str()) {
+                axfs::api::create_dir(absolute_target.as_str()).map_err(LinuxError::from)?;
             }
-            seed_cgroup_v2_dir(target.as_str())?;
-            api::set_proc_cgroup_mount_path(target.as_str());
+            seed_cgroup_v2_dir(absolute_target.as_str())?;
+            api::set_proc_cgroup_mount_path(absolute_target.as_str());
         } else if fs_type == "tmpfs" {
             let max_bytes = mount_data.as_deref().and_then(parse_tmpfs_size_bytes);
             axfs::api::mount_ramfs_with_max_bytes(
-                target.as_str(),
+                absolute_target.as_str(),
                 readonly,
                 remount,
                 max_bytes,
             )?;
         } else if fs_type == "overlay" {
-            axfs::api::mount_ramfs(target.as_str(), readonly, remount)?;
+            axfs::api::mount_ramfs(absolute_target.as_str(), readonly, remount)?;
         } else if matches!(fs_type.as_str(), "vfat" | "fat") {
             let source = absolute_mount_source_path(source.as_str())?;
             let block_dev = open_mount_source_blockdev(source.as_str(), readonly)?;
             validate_fat_boot_sector(source.as_str(), &block_dev)?;
-            axfs::api::mount_fatfs_device(target.as_str(), block_dev, readonly, remount)?;
+            axfs::api::mount_fatfs_device(absolute_target.as_str(), block_dev, readonly, remount)?;
         } else if matches!(fs_type.as_str(), "ext2" | "ext3" | "ext4") {
             #[cfg(feature = "lwext4_rs")]
             {
                 let source = absolute_mount_source_path(source.as_str())?;
                 let source_type = mount_source_file_type(source.as_str())?;
+                if source_type == S_IFCHR {
+                    return Err(LinuxError::ENOTBLK);
+                }
                 if !matches!(source_type, S_IFREG | S_IFBLK) {
                     return Err(LinuxError::EINVAL);
                 }
@@ -1147,7 +1219,7 @@ pub(crate) fn sys_mount(
                 let device_id = EXT4_MOUNT_DEVICE_SEQ.fetch_add(1, Ordering::Relaxed);
                 let device_name = format!("ext4:{device_id}:{}", source.trim_start_matches('/'));
                 if let Err(err) = axfs::api::mount_ext4_device::<FileLikeExt4Dev>(
-                    target.as_str(),
+                    absolute_target.as_str(),
                     block_dev,
                     device_name.as_str(),
                     readonly,
@@ -1161,7 +1233,7 @@ pub(crate) fn sys_mount(
                         Err(image_err) => {
                             log_ext_mount_backend_warning(
                                 source.as_str(),
-                                target.as_str(),
+                                absolute_target.as_str(),
                                 &err,
                                 "fallback read",
                                 &image_err,
@@ -1170,7 +1242,7 @@ pub(crate) fn sys_mount(
                         }
                     };
                     if let Err(image_err) = axfs::api::mount_ext4_image(
-                        target.as_str(),
+                        absolute_target.as_str(),
                         image.as_slice(),
                         readonly,
                         remount,
@@ -1179,7 +1251,7 @@ pub(crate) fn sys_mount(
                     {
                         log_ext_mount_backend_warning(
                             source.as_str(),
-                            target.as_str(),
+                            absolute_target.as_str(),
                             &err,
                             "backend",
                             &image_err,
@@ -1195,12 +1267,12 @@ pub(crate) fn sys_mount(
             }
         } else {
             axfs::api::mount_ramfs(
-                target.as_str(),
+                absolute_target.as_str(),
                 flags & MS_RDONLY != 0,
                 flags & MS_REMOUNT != 0,
             )?;
         }
-        clear_xattrs_under_mount(target.as_str());
+        clear_xattrs_under_mount(absolute_target.as_str());
         Ok(0)
     })
 }
