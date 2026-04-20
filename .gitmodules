@@ -1,7 +1,0 @@
-[submodule "os-contest-image"]
-	path = os-contest-image
-	url = https://github.com/zhouzhouyi-hub/os-contest-image.git
-[submodule "testsuits-for-oskernel-pre-2025"]
-	path = testsuits-for-oskernel-pre-2025
-	url = https://github.com/HyosungSink/testsuits-for-oskernel-pre-2025.git
-	branch = test

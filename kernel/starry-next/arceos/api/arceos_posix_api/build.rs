@@ -1,6 +1,7 @@
 fn main() {
     use std::env;
     use std::io::Write;
+    use std::path::PathBuf;
 
     fn gen_pthread_mutex(out_file: &str) -> std::io::Result<()> {
         // TODO: generate size and initial content automatically.
@@ -113,6 +114,24 @@ typedef struct {{
             .expect("Couldn't write bindings!");
     }
 
-    gen_pthread_mutex("../../ulib/axlibc/include/ax_pthread_mutex.h").unwrap();
-    gen_c_to_rust_bindings("ctypes.h", "src/ctypes_gen.rs");
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("missing CARGO_MANIFEST_DIR"));
+    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("missing OUT_DIR"));
+    let pthread_mutex_header = manifest_dir.join("../../ulib/axlibc/include/ax_pthread_mutex.h");
+    let ctypes_header = manifest_dir.join("ctypes.h");
+    let ctypes_rust = out_dir.join("ctypes_gen.rs");
+
+    gen_pthread_mutex(
+        pthread_mutex_header
+            .to_str()
+            .expect("pthread mutex header path is not valid UTF-8"),
+    )
+    .unwrap();
+    gen_c_to_rust_bindings(
+        ctypes_header
+            .to_str()
+            .expect("ctypes header path is not valid UTF-8"),
+        ctypes_rust
+            .to_str()
+            .expect("ctypes rust path is not valid UTF-8"),
+    );
 }

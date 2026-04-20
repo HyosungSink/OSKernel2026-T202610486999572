@@ -162,21 +162,25 @@ ensure_toolchain_bin() {
 seed_sys_queue_header() {
     compiler=$1
     sysroot=$("$compiler" -print-sysroot 2>/dev/null || true)
-    if [ -n "$sysroot" ]; then
-        sysroot=$(readlink -f "$sysroot" 2>/dev/null || printf '%s' "$sysroot")
-    fi
     if [ -z "$sysroot" ] || [ ! -d "$sysroot" ]; then
         return 0
     fi
-    # Some distro cross compilers report "/" as sysroot; never write into host root.
-    if [ "$sysroot" = "/" ]; then
-        return 0
-    fi
+    case "$sysroot" in
+        /)
+            return 0
+            ;;
+    esac
     if [ -f "$sysroot/include/sys/queue.h" ]; then
         return 0
     fi
     host_queue=$(find /usr/include -path '*/sys/queue.h' 2>/dev/null | head -n 1)
     if [ -z "$host_queue" ] || [ ! -f "$host_queue" ]; then
+        return 0
+    fi
+    if [ ! -d "$sysroot/include" ] && [ ! -w "$sysroot" ]; then
+        return 0
+    fi
+    if [ -d "$sysroot/include" ] && [ ! -w "$sysroot/include" ]; then
         return 0
     fi
     mkdir -p "$sysroot/include/sys"
@@ -663,8 +667,6 @@ sed -i \
 EOF
 chmod +x "$PATCHED_BUSYBOX_PREP"
 
-require_file "$TESTSUITS_ROOT/libc-test/Makefile"
-
 sed \
     -e 's/LDFLAGS += -Os -s -lpthread -lm -lrt/LDFLAGS += -Os -s -lm -ldl -lrt -lresolv -lpthread/' \
     "$TESTSUITS_ROOT/libc-test/Makefile" > "$PATCHED_LIBCTEST_LA_GLIBC_MAKEFILE"
@@ -775,6 +777,7 @@ if target_enabled lmbench_src; then
     require_file "$TESTSUITS_ROOT/lmbench_src/src/Makefile"
     sed \
         -e 's@COMPILE=$(CC) $(CFLAGS) -I/usr/include/tirpc  $(CPPFLAGS) $(LDFLAGS) @COMPILE=$(CC) $(CFLAGS) -I../libtirpc-1.3.6/tirpc -L../libtirpc-1.3.6/src/.libs $(CPPFLAGS) $(LDFLAGS) @' \
+        -e 's@-static -lm ../libtirpc-1\.3\.6/src/\.libs/libtirpc\.a@-static -lm ../libtirpc-1.3.6/src/.libs/libtirpc.a -lpthread@' \
         "$TESTSUITS_ROOT/lmbench_src/src/Makefile" > "$PATCHED_LMBENCH_SRC_MAKEFILE"
 fi
 

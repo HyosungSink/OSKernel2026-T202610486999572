@@ -5,8 +5,8 @@ AX_TESTCASES_LIST=$(shell cat ./apps/$(AX_TESTCASE)/testcase_list | tr '\n' ',')
 TARGET ?= x86_64-unknown-none
 FEATURES ?= fp_simd
 HOST_AXCONFIG_GEN ?= $(CURDIR)/bin/axconfig-gen.host
-HOST_CARGO_HOME ?= $(if $(CARGO_HOME),$(CARGO_HOME),$(HOME)/.cargo)
-HOST_CARGO_BIN ?= $(HOST_CARGO_HOME)/bin
+CARGO_HOME_DIR ?= $(if $(CARGO_HOME),$(CARGO_HOME),$(HOME)/.cargo)
+CARGO_BIN_DIR ?= $(CARGO_HOME_DIR)/bin
 RV_LD ?= $(shell \
 	if command -v riscv64-linux-gnu-ld >/dev/null 2>&1; then \
 		echo riscv64-linux-gnu-ld; \
@@ -62,11 +62,11 @@ test:
 
 # Build kernel in the oscomp docker container
 test_build: ax_root
-	@mkdir -p "$(HOST_CARGO_BIN)"
+	@mkdir -p "$(CARGO_BIN_DIR)"
 	@if [ -x "$(CURDIR)/bin/axconfig-gen" ] && "$(CURDIR)/bin/axconfig-gen" --version >/dev/null 2>&1; then \
-		cp -r "$(CURDIR)/bin/"* "$(HOST_CARGO_BIN)"; \
+		cp -r "$(CURDIR)/bin/"* "$(CARGO_BIN_DIR)"/; \
 	elif [ -x "$(HOST_AXCONFIG_GEN)" ] && "$(HOST_AXCONFIG_GEN)" --version >/dev/null 2>&1; then \
-		cp "$(HOST_AXCONFIG_GEN)" "$(HOST_CARGO_BIN)/axconfig-gen"; \
+		cp "$(HOST_AXCONFIG_GEN)" "$(CARGO_BIN_DIR)/axconfig-gen"; \
 	else \
 		tmp_axconfig_gen_dir="$(CURDIR)/target/host-tools/axconfig-gen-src"; \
 		rm -rf "$$tmp_axconfig_gen_dir"; \
@@ -75,14 +75,14 @@ test_build: ax_root
 		rm -f "$$tmp_axconfig_gen_dir/Cargo.lock"; \
 		if CARGO_TARGET_DIR="$(CURDIR)/target/host-tools" cargo build --manifest-path "$$tmp_axconfig_gen_dir/Cargo.toml" --release --offline; then \
 			cp "$(CURDIR)/target/host-tools/release/axconfig-gen" "$(HOST_AXCONFIG_GEN)"; \
-			cp "$(HOST_AXCONFIG_GEN)" "$(HOST_CARGO_BIN)/axconfig-gen"; \
+			cp "$(HOST_AXCONFIG_GEN)" "$(CARGO_BIN_DIR)/axconfig-gen"; \
 		else \
 			RUSTFLAGS="" cargo install axconfig-gen; \
 		fi; \
 	fi
 	@rustup override set nightly-2025-01-18
-	@PATH="$(HOST_CARGO_BIN):$(PATH)" $(MAKE) defconfig EXTRA_CONFIG="$(EXTRA_CONFIG)" ARCH=$(ARCH)
-	@PATH="$(HOST_CARGO_BIN):$(PATH)" make -C "$(AX_ROOT)" A="$(CURDIR)" ARCH="$(ARCH)" EXTRA_CONFIG="$(EXTRA_CONFIG)" BLK=y NET=y build
+	$(MAKE) defconfig EXTRA_CONFIG="$(EXTRA_CONFIG)" ARCH=$(ARCH)
+	@make -C "$(AX_ROOT)" A="$(CURDIR)" ARCH="$(ARCH)" EXTRA_CONFIG="$(EXTRA_CONFIG)" BLK=y NET=y build
 	@if [ "$(ARCH)" = "riscv64" ]; then \
 		"$(RV_LD)" -m elf64lriscv -T "$(RV_QEMU_KERNEL_LD)" -o kernel-rv -b binary "$(OUT_BIN)"; \
 	else \

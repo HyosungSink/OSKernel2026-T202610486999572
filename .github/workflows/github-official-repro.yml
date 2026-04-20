@@ -1,0 +1,490 @@
+name: GitHub Official Repro
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: "Architecture scope for exact-QEMU smoke"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - rv
+          - la
+      stateful_target_sample:
+        description: "Target sample(s) for stateful single-boot repro; comma/space separated"
+        required: true
+        default: "basic-glibc-rv"
+        type: string
+      include_prefix_groups:
+        description: "Expand target sample(s) to same-runtime/arch prefix groups"
+        required: true
+        default: true
+        type: boolean
+      ltp_case:
+        description: "Optional comma/space separated LTP case list for stateful repro"
+        required: false
+        default: ""
+        type: string
+      ltp_start_case:
+        description: "Optional LTP start case for stateful repro"
+        required: false
+        default: ""
+        type: string
+      build_outer_timeout_seconds:
+        description: "Outer timeout for official-image build stage"
+        required: true
+        default: "2400"
+        type: string
+      exact_qemu_timeout_seconds:
+        description: "Inner QEMU timeout for exact-QEMU smoke"
+        required: true
+        default: "120"
+        type: string
+      exact_outer_timeout_seconds:
+        description: "Outer timeout for exact-QEMU smoke job command"
+        required: true
+        default: "300"
+        type: string
+      stateful_outer_timeout_seconds:
+        description: "Outer timeout for stateful single-boot repro"
+        required: true
+        default: "2400"
+        type: string
+      transport_validation_timeout_seconds:
+        description: "Outer timeout for submission archive/bare-clone validation"
+        required: true
+        default: "600"
+        type: string
+      submodule_remote_timeout_seconds:
+        description: "Per-submodule unauthenticated ls-remote timeout"
+        required: true
+        default: "30"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-official-repro-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  OFFICIAL_IMAGE: zhouzhouyi/os-contest:20260104
+
+jobs:
+  prepare_submission:
+    runs-on: ubuntu-24.04
+    outputs:
+      stateful_subset: ${{ steps.subset.outputs.stateful_subset }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Audit submodules are publicly readable
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/github_official_repro.py audit-submodules \
+            --check-remote \
+            --remote-timeout "${{ inputs.submodule_remote_timeout_seconds }}" \
+            --out "$RUNNER_TEMP/submodule-audit.json"
+
+      - name: Initialize audited public submodules
+        shell: bash
+        run: |
+          set -euo pipefail
+          git submodule update --init --recursive
+
+      - name: Prepare sanitized submission view
+        shell: bash
+        run: |
+          set -euo pipefail
+          out_dir="$RUNNER_TEMP/submission-view"
+          python3 tools/github_official_repro.py prepare-submission --out "$out_dir"
+          cp "$RUNNER_TEMP/submodule-audit.json" "$out_dir/submodule-audit.json"
+          du -sh "$out_dir"
+
+      - name: Expand stateful subset
+        id: subset
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(python3 tools/github_official_repro.py expand-subset --target-sample "${{ inputs.stateful_target_sample }}")
+          if [[ "${{ inputs.include_prefix_groups }}" == "true" ]]; then
+            args+=(--include-prefix-groups)
+          fi
+          subset="$(${args[@]})"
+          echo "stateful_subset=$subset" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$subset" > "$RUNNER_TEMP/submission-view/stateful-subset.txt"
+          echo "[subset] $subset"
+
+      - name: Upload sanitized submission view
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-repro-submission-view
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/submission-view/**
+
+  submission_transport_validation:
+    needs: prepare_submission
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download sanitized submission view
+        uses: actions/download-artifact@v4
+        with:
+          name: official-repro-submission-view
+          path: ${{ runner.temp }}/submission-view
+
+      - name: Validate archive and bare-clone transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_dir="$RUNNER_TEMP/submission-transport-artifacts"
+          mkdir -p "$artifact_dir"
+          python3 tools/github_official_harness.py \
+            --timeout "${{ inputs.transport_validation_timeout_seconds }}" \
+            --log-path "$artifact_dir/transport.outer.log" \
+            --meta-path "$artifact_dir/transport.outer.meta.json" \
+            -- \
+            bash -lc '
+              set -euo pipefail
+              submission_dir="$RUNNER_TEMP/submission-view"
+              artifact_dir="$RUNNER_TEMP/submission-transport-artifacts"
+
+              python3 tools/github_official_repro.py hash-tree \
+                --root "$submission_dir" \
+                --payload-only \
+                --out "$artifact_dir/original-payload.json"
+
+              python3 tools/github_official_repro.py pack-submission \
+                --root "$submission_dir" \
+                --out "$artifact_dir/submission-view.tgz"
+              mkdir -p "$RUNNER_TEMP/submission-unpacked"
+              tar xzf "$artifact_dir/submission-view.tgz" -C "$RUNNER_TEMP/submission-unpacked"
+              unpacked_dir="$(find "$RUNNER_TEMP/submission-unpacked" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+              python3 tools/github_official_repro.py hash-tree \
+                --root "$unpacked_dir" \
+                --payload-only \
+                --out "$artifact_dir/unpacked-payload.json"
+              python3 tools/github_official_repro.py compare-tree-hash \
+                --left "$artifact_dir/original-payload.json" \
+                --right "$artifact_dir/unpacked-payload.json" \
+                > "$artifact_dir/archive-compare.json"
+
+              git clone --bare "$GITHUB_WORKSPACE" "$RUNNER_TEMP/repo.bare.git"
+              git clone "$RUNNER_TEMP/repo.bare.git" "$RUNNER_TEMP/repo-from-bare"
+              git -C "$RUNNER_TEMP/repo-from-bare" submodule update --init --recursive
+              python3 tools/github_official_repro.py prepare-submission \
+                --source-root "$RUNNER_TEMP/repo-from-bare" \
+                --out "$RUNNER_TEMP/repo-from-bare-submission"
+              python3 tools/github_official_repro.py compare-tree-hash \
+                --left "$artifact_dir/original-payload.json" \
+                --right "$RUNNER_TEMP/repo-from-bare-submission/submission-view.payload.json" \
+                > "$artifact_dir/bare-compare.json"
+            '
+
+      - name: Upload transport validation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-repro-transport
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/submission-transport-artifacts/**
+
+  build_in_official_image:
+    needs: prepare_submission
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download sanitized submission view
+        uses: actions/download-artifact@v4
+        with:
+          name: official-repro-submission-view
+          path: ${{ runner.temp }}/submission-view
+
+      - name: Pull official image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$OFFICIAL_IMAGE"
+
+      - name: Build kernels in official image
+        shell: bash
+        run: |
+          set -euo pipefail
+          submission_dir="$RUNNER_TEMP/submission-view"
+          artifact_dir="$RUNNER_TEMP/build-artifacts"
+          mkdir -p "$artifact_dir"
+          docker image inspect "$OFFICIAL_IMAGE" > "$artifact_dir/docker-image-inspect.json"
+          docker image inspect --format '{{json .RepoDigests}}' "$OFFICIAL_IMAGE" > "$artifact_dir/docker-image-digests.json"
+          python3 "$submission_dir/tools/github_official_harness.py" \
+            --timeout "${{ inputs.build_outer_timeout_seconds }}" \
+            --log-path "$artifact_dir/build.outer.log" \
+            --meta-path "$artifact_dir/build.outer.meta.json" \
+            -- \
+            docker run --rm \
+              -v "$submission_dir:/src" \
+              -v "$artifact_dir:/artifacts" \
+              -w /src \
+              "$OFFICIAL_IMAGE" \
+              bash -lc '
+                set -euo pipefail
+                uname -a > /artifacts/uname.txt
+                qemu-system-riscv64 --version > /artifacts/qemu-rv-version.txt
+                qemu-system-loongarch64 --version > /artifacts/qemu-la-version.txt
+                rustup show > /artifacts/rustup-show.txt
+                rustc -Vv > /artifacts/rustc-version.txt
+                cargo -V > /artifacts/cargo-version.txt
+                make --version > /artifacts/make-version.txt
+                git --version > /artifacts/git-version.txt
+                required_gcc_tools=(
+                  gcc
+                  riscv64-linux-gnu-gcc
+                  loongarch64-linux-gnu-gcc
+                  riscv64-linux-musl-gcc
+                  loongarch64-linux-musl-gcc
+                )
+                optional_gcc_tools=(
+                  g++
+                  riscv64-linux-gnu-g++
+                  loongarch64-linux-gnu-g++
+                )
+                : > /artifacts/missing-required-gcc-tools.txt
+                for tool in "${required_gcc_tools[@]}" "${optional_gcc_tools[@]}"
+                do
+                  if command -v "$tool" > "/artifacts/${tool}.path.txt"; then
+                    "$tool" --version > "/artifacts/${tool}.version.txt"
+                    "$tool" -dumpmachine > "/artifacts/${tool}.triplet.txt" || true
+                  else
+                    echo "missing" > "/artifacts/${tool}.path.txt"
+                    echo "missing" > "/artifacts/${tool}.version.txt"
+                    echo "missing" > "/artifacts/${tool}.triplet.txt"
+                    case " ${required_gcc_tools[*]} " in
+                      *" $tool "*) echo "$tool" >> /artifacts/missing-required-gcc-tools.txt ;;
+                    esac
+                  fi
+                done
+                test ! -s /artifacts/missing-required-gcc-tools.txt
+                make all
+                sha256sum kernel-rv kernel-la > /artifacts/kernel-sha256.txt
+                cp kernel-rv kernel-la /artifacts/
+              '
+
+      - name: Upload official-image build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-repro-build
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/build-artifacts/**
+
+  exact_qemu_rv:
+    if: ${{ inputs.arch == 'both' || inputs.arch == 'rv' }}
+    needs:
+      - prepare_submission
+      - build_in_official_image
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download sanitized submission view
+        uses: actions/download-artifact@v4
+        with:
+          name: official-repro-submission-view
+          path: ${{ runner.temp }}/submission-view
+
+      - name: Download built kernels
+        uses: actions/download-artifact@v4
+        with:
+          name: official-repro-build
+          path: ${{ runner.temp }}/build-artifacts
+
+      - name: Pull official image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$OFFICIAL_IMAGE"
+
+      - name: Run exact QEMU smoke on rv
+        shell: bash
+        run: |
+          set -euo pipefail
+          submission_dir="$RUNNER_TEMP/submission-view"
+          artifact_dir="$RUNNER_TEMP/exact-rv-artifacts"
+          mkdir -p "$artifact_dir"
+          cp "$RUNNER_TEMP/build-artifacts/kernel-rv" "$submission_dir/kernel-rv"
+          python3 "$submission_dir/tools/github_official_harness.py" \
+            --timeout "${{ inputs.exact_outer_timeout_seconds }}" \
+            --log-path "$artifact_dir/exact-rv.outer.log" \
+            --meta-path "$artifact_dir/exact-rv.outer.meta.json" \
+            -- \
+            docker run --rm \
+              -v "$submission_dir:/src" \
+              -v "$artifact_dir:/artifacts" \
+              -w /src \
+              "$OFFICIAL_IMAGE" \
+              bash -lc '
+                set -euo pipefail
+                bash tools/build_basic_image.sh rv /artifacts/basic-rv.img
+                python3 tools/run_exact_qemu.py \
+                  --arch rv \
+                  --kernel /src/kernel-rv \
+                  --fs-image /artifacts/basic-rv.img \
+                  --log-path /artifacts/exact-rv.raw.out \
+                  --meta-path /artifacts/exact-rv.meta.json \
+                  --timeout "${{ inputs.exact_qemu_timeout_seconds }}"
+              '
+
+      - name: Upload rv exact-QEMU artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-repro-exact-rv
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/exact-rv-artifacts/**
+
+  exact_qemu_la:
+    if: ${{ inputs.arch == 'both' || inputs.arch == 'la' }}
+    needs:
+      - prepare_submission
+      - build_in_official_image
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download sanitized submission view
+        uses: actions/download-artifact@v4
+        with:
+          name: official-repro-submission-view
+          path: ${{ runner.temp }}/submission-view
+
+      - name: Download built kernels
+        uses: actions/download-artifact@v4
+        with:
+          name: official-repro-build
+          path: ${{ runner.temp }}/build-artifacts
+
+      - name: Pull official image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$OFFICIAL_IMAGE"
+
+      - name: Run exact QEMU smoke on la
+        shell: bash
+        run: |
+          set -euo pipefail
+          submission_dir="$RUNNER_TEMP/submission-view"
+          artifact_dir="$RUNNER_TEMP/exact-la-artifacts"
+          mkdir -p "$artifact_dir"
+          cp "$RUNNER_TEMP/build-artifacts/kernel-la" "$submission_dir/kernel-la"
+          python3 "$submission_dir/tools/github_official_harness.py" \
+            --timeout "${{ inputs.exact_outer_timeout_seconds }}" \
+            --log-path "$artifact_dir/exact-la.outer.log" \
+            --meta-path "$artifact_dir/exact-la.outer.meta.json" \
+            -- \
+            docker run --rm \
+              -v "$submission_dir:/src" \
+              -v "$artifact_dir:/artifacts" \
+              -w /src \
+              "$OFFICIAL_IMAGE" \
+              bash -lc '
+                set -euo pipefail
+                bash tools/build_basic_image.sh la /artifacts/basic-la.img
+                python3 tools/run_exact_qemu.py \
+                  --arch la \
+                  --kernel /src/kernel-la \
+                  --fs-image /artifacts/basic-la.img \
+                  --log-path /artifacts/exact-la.raw.out \
+                  --meta-path /artifacts/exact-la.meta.json \
+                  --timeout "${{ inputs.exact_qemu_timeout_seconds }}"
+              '
+
+      - name: Upload la exact-QEMU artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-repro-exact-la
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/exact-la-artifacts/**
+
+  stateful_single_boot:
+    needs:
+      - prepare_submission
+      - build_in_official_image
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download sanitized submission view
+        uses: actions/download-artifact@v4
+        with:
+          name: official-repro-submission-view
+          path: ${{ runner.temp }}/submission-view
+
+      - name: Pull official image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$OFFICIAL_IMAGE"
+
+      - name: Run stateful single-boot reproduction
+        shell: bash
+        env:
+          STATEFUL_SUBSET: ${{ needs.prepare_submission.outputs.stateful_subset }}
+          LTP_CASE: ${{ inputs.ltp_case }}
+          LTP_START_CASE: ${{ inputs.ltp_start_case }}
+        run: |
+          set -euo pipefail
+          submission_dir="$RUNNER_TEMP/submission-view"
+          artifact_dir="$RUNNER_TEMP/stateful-artifacts"
+          mkdir -p "$artifact_dir"
+          python3 "$submission_dir/tools/github_official_harness.py" \
+            --timeout "${{ inputs.stateful_outer_timeout_seconds }}" \
+            --log-path "$artifact_dir/stateful.outer.log" \
+            --meta-path "$artifact_dir/stateful.outer.meta.json" \
+            -- \
+            docker run --rm \
+              -e STATEFUL_SUBSET \
+              -e LTP_CASE \
+              -e LTP_START_CASE \
+              -v "$submission_dir:/src" \
+              -v "$artifact_dir:/artifacts" \
+              -w /src \
+              "$OFFICIAL_IMAGE" \
+              bash -lc '
+                set -euo pipefail
+                read -r -a subset_arr <<< "$STATEFUL_SUBSET"
+                cmd=(
+                  python3 tools/run_full_local_suite.py
+                  --online-repro
+                  --quick-point-retest
+                  --shared-cache-root /artifacts/cache
+                  --work-root /artifacts/work
+                  --report /artifacts/score.txt
+                  --subset
+                )
+                cmd+=("${subset_arr[@]}")
+                if [[ -n "$LTP_CASE" ]]; then
+                  cmd+=(--ltp-case "$LTP_CASE")
+                fi
+                if [[ -n "$LTP_START_CASE" ]]; then
+                  cmd+=(--ltp-start-case "$LTP_START_CASE")
+                fi
+                printf "%s\n" "${cmd[*]}" > /artifacts/stateful-command.txt
+                "${cmd[@]}" 2>&1 | tee /artifacts/stateful-repro.out
+              '
+
+      - name: Upload stateful single-boot artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-repro-stateful
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/stateful-artifacts/**

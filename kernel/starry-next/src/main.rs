@@ -627,24 +627,39 @@ fn should_schedule_group(runtime: &str, group: &str) -> bool {
     text.lines().any(|line| line.trim() == expected)
 }
 
+fn should_schedule_group_any_runtime(group: &str) -> bool {
+    RUNTIME_SCRIPT_DIRS
+        .iter()
+        .map(|dir| runtime_name(dir))
+        .any(|runtime| should_schedule_group(runtime, group))
+}
+
 fn contest_schedule_start_index() -> usize {
     let Ok(raw) = axfs::api::read(OFFICIAL_ALLOWED_GROUPS_PATH) else {
-        return 0;
+        return CONTEST_GROUPS
+            .iter()
+            .position(|group| group == &"ltp")
+            .unwrap_or(0);
     };
     let Ok(text) = core::str::from_utf8(&raw) else {
-        return 0;
+        return CONTEST_GROUPS
+            .iter()
+            .position(|group| group == &"ltp")
+            .unwrap_or(0);
     };
-    for (index, group) in CONTEST_GROUPS.iter().enumerate() {
-        if text.lines().any(|line| {
-            let Some((_, listed_group)) = line.trim().split_once(':') else {
-                return false;
-            };
-            listed_group == *group
-        }) {
-            return index;
-        }
-    }
-    0
+    CONTEST_GROUPS
+        .iter()
+        .position(|group| {
+            text.lines().any(|line| {
+                let trimmed = line.trim();
+                trimmed
+                    .split_once(':')
+                    .map(|(_runtime, allowed_group)| allowed_group == *group)
+                    .unwrap_or(false)
+            })
+        })
+        .or_else(|| CONTEST_GROUPS.iter().position(|group| group == &"ltp"))
+        .unwrap_or(0)
 }
 
 fn copy_file_if_missing(src: &str, dst: &str) {
@@ -1212,6 +1227,9 @@ fn discover_test_scripts() -> Option<Vec<String>> {
         .enumerate()
         .skip(start_index)
     {
+        if !should_schedule_group_any_runtime(group) {
+            continue;
+        }
         if found_groups[group_index] {
             continue;
         }

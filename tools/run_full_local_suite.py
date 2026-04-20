@@ -26,7 +26,7 @@ import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterable
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,8 +34,18 @@ TESTSUITS_ROOT = Path(os.environ.get("TESTSUITS_ROOT", ROOT / "testsuits-for-osk
 LTP_RELEASE = "20240524"
 LTP_SUITE_DIR = f"ltp-full-{LTP_RELEASE}"
 LTP_RUNTEST_PATH = TESTSUITS_ROOT / LTP_SUITE_DIR / "runtest" / "syscalls"
-WORK_ROOT = ROOT / "dev/full-suite"
-SHARED_CACHE_ROOT = ROOT / "dev/full-suite"
+
+
+def default_work_root() -> Path:
+    return Path(os.environ.get("OSK_WORK_ROOT", ROOT / "dev/full-suite"))
+
+
+def default_shared_cache_root() -> Path:
+    return Path(os.environ.get("OSK_SHARED_CACHE_ROOT", Path.home() / ".cache" / "osk-full-suite"))
+
+
+WORK_ROOT = default_work_root()
+SHARED_CACHE_ROOT = default_shared_cache_root()
 QEMU_BIN_DIR = Path("/opt/qemu-bin-10.0.2/bin")
 
 
@@ -85,6 +95,7 @@ FATAL_IDLE_TIMEOUT = 15.0
 SILENT_IDLE_TIMEOUT = 90.0
 SHARDED_LTP_SILENT_IDLE_TIMEOUT = 60.0
 LTP_HEARTBEAT_INTERVAL_SEC = 30
+LTP_SINGLE_CASE_TIMEOUT_SEC = 300
 DEDICATED_LTP_RUNTIME_MUL = 1.0
 DEDICATED_LTP_SHARDS = 10
 LTP_QUEUE_GUEST_HOST = "10.0.2.2"
@@ -109,11 +120,23 @@ LTP_SHARD_POINT_WEIGHTS = {
     "rename": 3,
     "sendfile": 3,
 }
-LTP_RUNTIME_WEIGHT_LOG_BY_VARIANT = {
+LTP_RUNTIME_WEIGHT_SAMPLE_BY_VARIANT = {
+    "glibc-rv": "ltp-glibc-rv",
+    "musl-rv": "ltp-musl-rv",
+    "glibc-la": "ltp-glibc-la",
+    "musl-la": "ltp-musl-la",
+}
+LTP_RUNTIME_WEIGHT_EXPORT_LOG_BY_VARIANT = {
     "glibc-rv": ROOT / "logs" / "local_Riscv输出.txt",
     "musl-rv": ROOT / "logs" / "local_Riscv输出.txt",
     "glibc-la": ROOT / "logs" / "local_LoongArch输出.txt",
     "musl-la": ROOT / "logs" / "local_LoongArch输出.txt",
+}
+LTP_FALLBACK_RUNTIME_WEIGHT_EXPORT_LOG_BY_VARIANT = {
+    "glibc-rv": ROOT / "logs" / "fallback_local_Riscv输出.txt",
+    "musl-rv": ROOT / "logs" / "fallback_local_Riscv输出.txt",
+    "glibc-la": ROOT / "logs" / "fallback_local_LoongArch输出.txt",
+    "musl-la": ROOT / "logs" / "fallback_local_LoongArch输出.txt",
 }
 LTP_PERSISTED_WEIGHT_FILE = ROOT / "logs" / "local_ltp_shard_weights.json"
 LTP_RUNTIME_WEIGHT_UNIT_SEC = 1
@@ -135,12 +158,12 @@ FULL_RUN_FAILURE_LIMIT = 4
 TAIL_LINES = 40
 LIVE_LINE_PREFIX = "[live] "
 LIVE_POLL_INTERVAL = 0.2
-NON_TTY_LTP_PROGRESS_INTERVAL = 30.0
 LIVE_LINE_ENABLED = sys.stdout.isatty() and os.environ.get("TERM", "") != "dumb"
 LIVE_OUTPUT_ENABLED = LIVE_LINE_ENABLED
 ACTIVE_LIVE_STATUS_RENDERER_OWNER: object | None = None
 ACTIVE_LIVE_STATUS_RENDERER: Callable[[], None] | None = None
 ACTIVE_LIVE_STATUS_CLEARER: Callable[[], None] | None = None
+LTP_PROGRESS_SNAPSHOT_INTERVAL = 15.0
 TERMINATE_GRACE_PERIOD = 1.0
 OFFICIAL_IMAGE_SIZE = "6144M"
 DIRECT_IMAGE_SIZE = "4096M"
@@ -457,9 +480,74 @@ def rootfs_ready_token(rootfs_dir: Path) -> str:
     return f"{rootfs_dir.name}:{stat.st_mtime_ns}"
 
 
+def git_output(args: list[str]) -> str | None:
+    try:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip()
+
+
+def quick_kernel_revision_token() -> str | None:
+    head = git_output(["rev-parse", "HEAD"])
+    if not head:
+        return None
+    dirty = git_output(
+        [
+            "status",
+            "--porcelain",
+            "--untracked-files=no",
+            "--",
+            "Makefile",
+            "kernel",
+            "tools/refresh_embedded_runtime.sh",
+        ]
+    )
+    if dirty:
+        return None
+    return head
+
+
 def hash_key(*parts: str) -> str:
     data = "\n".join(parts).encode("utf-8")
     return hashlib.sha1(data).hexdigest()
+
+
+def merge_build_targets(primary_targets: str | None, extra_targets: str | None) -> str | None:
+    ordered = [
+        "basic",
+        "busybox",
+        "lua",
+        "libc-test",
+        "iozone",
+        "iperf",
+        "libcbench",
+        "lmbench_src",
+        "cyclictest",
+        "ltp",
+        "netperf",
+    ]
+    merged: set[str] = set()
+    for chunk in (primary_targets, extra_targets):
+        if not chunk:
+            continue
+        merged.update(part for part in chunk.split() if part)
+    if not merged:
+        return None
+    return " ".join(target for target in ordered if target in merged)
+
+
+def effective_quick_build_targets(build_targets: str | None) -> str | None:
+    extra_targets = os.environ.get("OSK_QUICK_ROOTFS_TARGETS")
+    return merge_build_targets(build_targets, extra_targets)
 
 
 def file_content_token(path: Path) -> str:
@@ -1180,6 +1268,7 @@ class LtpShardRuntimeProgressReporter:
         self.total_shards = total_shards
         self.total_cases = total_cases
         self.started_at = time.monotonic()
+        self.last_console_snapshot_at = self.started_at
         self.lock = threading.Lock()
         self.finished_cases: set[str] = set()
         self.passed_cases: set[str] = set()
@@ -1199,7 +1288,6 @@ class LtpShardRuntimeProgressReporter:
             index: 0.0 for index in range(total_shards)
         }
         self.rendered_line_count = 0
-        self.next_non_live_emit_at = self.started_at
         set_live_status_renderer(
             self,
             lambda: self.poll(time.monotonic()),
@@ -1318,16 +1406,23 @@ class LtpShardRuntimeProgressReporter:
                 return []
             return [f"[ltp-shard-timing] {self.label}", *lines]
 
+    def _maybe_console_snapshot_lines_locked(self, now: float) -> list[str]:
+        if LIVE_OUTPUT_ENABLED:
+            return []
+        if now - self.last_console_snapshot_at < LTP_PROGRESS_SNAPSHOT_INTERVAL:
+            return []
+        has_transient_state = any(
+            state in {"booting", "switching"} for state in self.worker_states.values()
+        ) or any(started_at is not None for started_at in self.worker_restart_started_at.values())
+        has_active_cases = bool(self.active_cases)
+        if not has_transient_state and not has_active_cases:
+            return []
+        self.last_console_snapshot_at = now
+        return list(self._message_lines(now))
+
     def _render(self, now: float) -> None:
         global LIVE_OUTPUT_ENABLED
         if not LIVE_OUTPUT_ENABLED:
-            if now < self.next_non_live_emit_at:
-                return
-            lines = self._message_lines(now)
-            for line in lines:
-                safe_print(line)
-                append_transcript_line(line)
-            self.next_non_live_emit_at = now + NON_TTY_LTP_PROGRESS_INTERVAL
             return
         try:
             lines = self._message_lines(now)
@@ -1510,8 +1605,12 @@ class LtpShardRuntimeProgressReporter:
         return None
 
     def poll(self, now: float) -> str | None:
+        snapshot_lines: list[str] = []
         with self.lock:
             self._render(now)
+            snapshot_lines = self._maybe_console_snapshot_lines_locked(now)
+        if snapshot_lines:
+            emit_console_lines(snapshot_lines, rerender=False)
         return None
 
     def mark_stalled_case(self, shard_index: int, case_name: str) -> None:
@@ -1557,11 +1656,22 @@ class LtpShardRuntimeProgressReporter:
         set_live_status_renderer(self, None)
 
 
-def console(message: str, *, err: bool = False) -> None:
+def emit_console_lines(
+    messages: Iterable[str],
+    *,
+    err: bool = False,
+    rerender: bool = True,
+) -> None:
     clear_live_line()
-    safe_print(message, err=err)
-    append_transcript_line(message)
-    rerender_live_status()
+    for message in messages:
+        safe_print(message, err=err)
+        append_transcript_line(message)
+    if rerender:
+        rerender_live_status()
+
+
+def console(message: str, *, err: bool = False) -> None:
+    emit_console_lines([message], err=err, rerender=True)
 
 
 def relative_path(path: Path) -> Path:
@@ -1619,6 +1729,7 @@ def run_logged_command(
     timeout: int | None = None,
     fatal_idle_timeout: float | None = None,
     silent_idle_timeout: float | None = SILENT_IDLE_TIMEOUT,
+    pre_output_idle_timeout: float | None = None,
     on_output: Callable[[list[str], float], str | None] | None = None,
     on_poll: Callable[[float], str | None] | None = None,
     suppress_live_log: bool = False,
@@ -1694,6 +1805,19 @@ def run_logged_command(
                     clear_live_line()
                     restore_tty_state(tty_state)
                     return None, True, f"timeout after {timeout}s"
+                if (
+                    pre_output_idle_timeout is not None
+                    and size == 0
+                    and time.monotonic() - start > pre_output_idle_timeout
+                ):
+                    terminate_process_group(proc)
+                    clear_live_line()
+                    restore_tty_state(tty_state)
+                    return (
+                        None,
+                        True,
+                        f"silent boot stall after {pre_output_idle_timeout:.0f}s before first log line",
+                    )
                 if (
                     silent_idle_timeout is not None
                     and size > 0
@@ -2386,6 +2510,8 @@ export LD_LIBRARY_PATH="__OSK_LTP_LIBRARY_PATH__"
 export LTP_TIMEOUT_MUL
 : "${LTP_RUNTIME_MUL:=__OSK_LTP_RUNTIME_MUL__}"
 export LTP_RUNTIME_MUL
+: "${LTP_CASE_TIMEOUT_SEC:=__OSK_LTP_CASE_TIMEOUT_SEC__}"
+export LTP_CASE_TIMEOUT_SEC
 
 ltp_ts_now() {
   local up rest
@@ -2432,7 +2558,7 @@ run_ltp_case() {
   local case_name="$1"
   shift
   local log_file="/tmp/.ltp_${case_name}_$$.log"
-  local case_pid hb_pid ret
+  local case_pid hb_pid watchdog_pid ret
   : > "$log_file"
 
   kill_case_session() {
@@ -2450,10 +2576,22 @@ run_ltp_case() {
     done
   ) &
   hb_pid=$!
+  (
+    /busybox sleep "$LTP_CASE_TIMEOUT_SEC" 2>/dev/null || exit 0
+    if kill -0 "$case_pid" 2>/dev/null; then
+      echo "[ltp-case-timeout] $case_name exceeded ${LTP_CASE_TIMEOUT_SEC}s"
+      kill_case_session TERM
+      /busybox sleep 2 2>/dev/null || true
+      kill_case_session KILL
+    fi
+  ) &
+  watchdog_pid=$!
   wait "$case_pid"
   ret=$?
   kill "$hb_pid" 2>/dev/null
   wait "$hb_pid" 2>/dev/null
+  kill "$watchdog_pid" 2>/dev/null
+  wait "$watchdog_pid" 2>/dev/null
   kill_case_session TERM
   kill_case_session KILL
   ltp_emit_log_file "$log_file"
@@ -2528,6 +2666,8 @@ export LD_LIBRARY_PATH="__OSK_LTP_LIBRARY_PATH__"
 export LTP_TIMEOUT_MUL
 : "${LTP_RUNTIME_MUL:=__OSK_LTP_RUNTIME_MUL__}"
 export LTP_RUNTIME_MUL
+: "${LTP_CASE_TIMEOUT_SEC:=__OSK_LTP_CASE_TIMEOUT_SEC__}"
+export LTP_CASE_TIMEOUT_SEC
 
 ltp_queue_url="__OSK_LTP_QUEUE_URL__"
 ltp_worker_id="__OSK_LTP_WORKER_ID__"
@@ -2583,7 +2723,7 @@ run_ltp_case() {
   local case_name="$1"
   shift
   local log_file="/tmp/.ltp_${case_name}_$$.log"
-  local case_pid hb_pid ret
+  local case_pid hb_pid watchdog_pid ret
   : > "$log_file"
 
   kill_case_session() {
@@ -2601,10 +2741,22 @@ run_ltp_case() {
     done
   ) &
   hb_pid=$!
+  (
+    /busybox sleep "$LTP_CASE_TIMEOUT_SEC" 2>/dev/null || exit 0
+    if kill -0 "$case_pid" 2>/dev/null; then
+      echo "[ltp-case-timeout] $case_name exceeded ${LTP_CASE_TIMEOUT_SEC}s"
+      kill_case_session TERM
+      /busybox sleep 2 2>/dev/null || true
+      kill_case_session KILL
+    fi
+  ) &
+  watchdog_pid=$!
   wait "$case_pid"
   ret=$?
   kill "$hb_pid" 2>/dev/null
   wait "$hb_pid" 2>/dev/null
+  kill "$watchdog_pid" 2>/dev/null
+  wait "$watchdog_pid" 2>/dev/null
   kill_case_session TERM
   kill_case_session KILL
   ltp_emit_log_file "$log_file"
@@ -2704,6 +2856,8 @@ export LD_LIBRARY_PATH="__OSK_LTP_LIBRARY_PATH__"
 export LTP_TIMEOUT_MUL
 : "${LTP_RUNTIME_MUL:=__OSK_LTP_RUNTIME_MUL__}"
 export LTP_RUNTIME_MUL
+: "${LTP_CASE_TIMEOUT_SEC:=__OSK_LTP_CASE_TIMEOUT_SEC__}"
+export LTP_CASE_TIMEOUT_SEC
 
 ltp_ts_now() {
   local up rest
@@ -2750,7 +2904,7 @@ run_ltp_case() {
   local case_name="$1"
   shift
   local log_file="/tmp/.ltp_${case_name}_$$.log"
-  local case_pid hb_pid ret
+  local case_pid hb_pid watchdog_pid ret
   : > "$log_file"
 
   kill_case_session() {
@@ -2768,10 +2922,22 @@ run_ltp_case() {
     done
   ) &
   hb_pid=$!
+  (
+    /busybox sleep "$LTP_CASE_TIMEOUT_SEC" 2>/dev/null || exit 0
+    if kill -0 "$case_pid" 2>/dev/null; then
+      echo "[ltp-case-timeout] $case_name exceeded ${LTP_CASE_TIMEOUT_SEC}s"
+      kill_case_session TERM
+      /busybox sleep 2 2>/dev/null || true
+      kill_case_session KILL
+    fi
+  ) &
+  watchdog_pid=$!
   wait "$case_pid"
   ret=$?
   kill "$hb_pid" 2>/dev/null
   wait "$hb_pid" 2>/dev/null
+  kill "$watchdog_pid" 2>/dev/null
+  wait "$watchdog_pid" 2>/dev/null
   kill_case_session TERM
   kill_case_session KILL
   ltp_emit_log_file "$log_file"
@@ -3127,6 +3293,58 @@ def parse_ltp_case_runtime_weights_from_log(log_path: Path, runtime: str) -> tup
     return (case_weights, point_weights)
 
 
+def ltp_runtime_weight_log_candidates(weight_key: str, *, fallback: bool = False) -> list[Path]:
+    candidates: list[Path] = []
+    sample = LTP_RUNTIME_WEIGHT_SAMPLE_BY_VARIANT.get(weight_key)
+    if sample:
+        logs_dir = WORK_ROOT / "logs"
+        candidates.append(logs_dir / f"{sample}.out")
+        candidates.extend(sorted(logs_dir.glob(f"{sample}.worker*.out")))
+        candidates.extend(sorted(logs_dir.glob(f"{sample}.worker*.try*.out")))
+    export_map = (
+        LTP_FALLBACK_RUNTIME_WEIGHT_EXPORT_LOG_BY_VARIANT
+        if fallback
+        else LTP_RUNTIME_WEIGHT_EXPORT_LOG_BY_VARIANT
+    )
+    export_log = export_map.get(weight_key)
+    if export_log is not None:
+        candidates.append(export_log)
+
+    unique_candidates: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve(strict=False)
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique_candidates.append(candidate)
+    return unique_candidates
+
+
+def preferred_ltp_runtime_weight_log(weight_key: str, *, fallback: bool = False) -> Path | None:
+    for candidate in ltp_runtime_weight_log_candidates(weight_key, fallback=fallback):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def parse_ltp_case_runtime_weights_for_variant(
+    weight_key: str,
+    *,
+    fallback: bool = False,
+) -> tuple[dict[str, int], dict[str, int]]:
+    runtime, _arch = parse_ltp_weight_key(weight_key)
+    merged_case_weights: dict[str, int] = {}
+    merged_point_weights: dict[str, int] = {}
+    for log_path in ltp_runtime_weight_log_candidates(weight_key, fallback=fallback):
+        if not log_path.exists():
+            continue
+        case_weights, point_weights = parse_ltp_case_runtime_weights_from_log(log_path, runtime)
+        merged_case_weights = merge_ltp_runtime_weight_maps(merged_case_weights, case_weights)
+        merged_point_weights = merge_ltp_runtime_weight_maps(merged_point_weights, point_weights)
+    return (merged_case_weights, merged_point_weights)
+
+
 def kernel_log_timestamp_seconds(line: str) -> float | None:
     match = KERNEL_LOG_TIMESTAMP_RE.match(line)
     if not match:
@@ -3163,7 +3381,7 @@ def estimate_ltp_single_boot_startup_seconds(
     if observed_samples:
         return (max(1, quantile_int(observed_samples, LTP_WEIGHT_POINT_QUANTILE)), "current")
 
-    history_log = LTP_RUNTIME_WEIGHT_LOG_BY_VARIANT.get(ltp_weight_key(runtime, arch))
+    history_log = preferred_ltp_runtime_weight_log(ltp_weight_key(runtime, arch))
     history_samples = parse_ltp_startup_samples_from_log(history_log, runtime)
     if history_samples:
         return (max(1, quantile_int(history_samples, LTP_WEIGHT_POINT_QUANTILE)), "history")
@@ -3257,6 +3475,82 @@ def load_persisted_ltp_case_runtime_weights(weight_key: str) -> tuple[dict[str, 
     )
 
 
+def load_fallback_ltp_case_runtime_weights(weight_key: str) -> tuple[dict[str, int], dict[str, int]]:
+    return parse_ltp_case_runtime_weights_for_variant(weight_key, fallback=True)
+
+
+def choose_ltp_runtime_weight_plan(
+    weight_key: str,
+    shard_count: int,
+    case_names: list[str],
+    refreshed_case_weights: dict[str, int],
+    refreshed_point_weights: dict[str, int],
+) -> tuple[dict[str, int], dict[str, int], str, int, str, int]:
+    fallback_case_weights, fallback_point_weights = load_fallback_ltp_case_runtime_weights(weight_key)
+    if fallback_case_weights or fallback_point_weights:
+        baseline_case_weights = fallback_case_weights
+        baseline_point_weights = fallback_point_weights
+        baseline_label = "fallback-log"
+    else:
+        baseline_case_weights, baseline_point_weights = load_persisted_ltp_case_runtime_weights(weight_key)
+        baseline_label = "persisted" if (baseline_case_weights or baseline_point_weights) else "static"
+
+    if not refreshed_case_weights and not refreshed_point_weights:
+        return (
+            baseline_case_weights,
+            baseline_point_weights,
+            baseline_label,
+            0,
+            baseline_label,
+            0,
+        )
+    if not (baseline_case_weights or baseline_point_weights):
+        refreshed_max = 0
+        if shard_count > 1 and case_names:
+            _, refreshed_loads = assign_ltp_case_shards(
+                case_names, shard_count, refreshed_case_weights, refreshed_point_weights
+            )
+            refreshed_max = max(refreshed_loads, default=0)
+        return (
+            refreshed_case_weights,
+            refreshed_point_weights,
+            "refreshed",
+            refreshed_max,
+            baseline_label,
+            0,
+        )
+
+    baseline_max = 0
+    refreshed_max = 0
+    if shard_count > 1 and case_names:
+        _, baseline_loads = assign_ltp_case_shards(
+            case_names, shard_count, baseline_case_weights, baseline_point_weights
+        )
+        _, refreshed_loads = assign_ltp_case_shards(
+            case_names, shard_count, refreshed_case_weights, refreshed_point_weights
+        )
+        baseline_max = max(baseline_loads, default=0)
+        refreshed_max = max(refreshed_loads, default=0)
+
+    if refreshed_max <= baseline_max:
+        return (
+            refreshed_case_weights,
+            refreshed_point_weights,
+            "refreshed",
+            refreshed_max,
+            baseline_label,
+            baseline_max,
+        )
+    return (
+        baseline_case_weights,
+        baseline_point_weights,
+        baseline_label,
+        baseline_max,
+        "refreshed",
+        refreshed_max,
+    )
+
+
 def merge_ltp_runtime_weight_maps(*maps: dict[str, int]) -> dict[str, int]:
     merged: dict[str, int] = {}
     for weight_map in maps:
@@ -3283,7 +3577,7 @@ def persist_ltp_case_runtime_weights(
     if not isinstance(variants, dict):
         variants = {}
         payload["variants"] = variants
-    source_log = LTP_RUNTIME_WEIGHT_LOG_BY_VARIANT.get(weight_key)
+    source_log = preferred_ltp_runtime_weight_log(weight_key)
     variants[weight_key] = {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "unit": "seconds",
@@ -3306,34 +3600,40 @@ def refresh_ltp_case_runtime_weight_variant(
     case_names: list[str],
 ) -> None:
     runtime, arch = parse_ltp_weight_key(weight_key)
-    selected_log = LTP_RUNTIME_WEIGHT_LOG_BY_VARIANT.get(weight_key)
-    baseline_case_weights, baseline_point_weights = load_persisted_ltp_case_runtime_weights(weight_key)
-    case_weights, point_weights = (
-        parse_ltp_case_runtime_weights_from_log(selected_log, runtime)
-        if selected_log is not None
-        else ({}, {})
-    )
-    persist_ltp_case_runtime_weights(weight_key, case_weights, point_weights)
-    LTP_CASE_RUNTIME_WEIGHT_CACHE[weight_key] = (case_weights, point_weights)
+    case_weights, point_weights = parse_ltp_case_runtime_weights_for_variant(weight_key)
+    (
+        chosen_case_weights,
+        chosen_point_weights,
+        chosen_label,
+        chosen_max,
+        rejected_label,
+        rejected_max,
+    ) = choose_ltp_runtime_weight_plan(weight_key, shard_count, case_names, case_weights, point_weights)
+    if not case_weights and not point_weights:
+        LTP_CASE_RUNTIME_WEIGHT_CACHE[weight_key] = (chosen_case_weights, chosen_point_weights)
+        console(
+            f"[ltp-weight] {weight_key} skip empty refresh, keep {chosen_label} "
+            f"source-cases=0 source-points=0"
+        )
+        return
+    if chosen_label == "refreshed":
+        persist_ltp_case_runtime_weights(weight_key, case_weights, point_weights)
+    LTP_CASE_RUNTIME_WEIGHT_CACHE[weight_key] = (chosen_case_weights, chosen_point_weights)
 
     if shard_count <= 1 or not case_names:
         console(
-            f"[ltp-weight] {weight_key} refreshed source-cases={len(case_weights)} "
-            f"source-points={len(point_weights)}"
+            f"[ltp-weight] {weight_key} choose {chosen_label} over {rejected_label} "
+            f"source-cases={len(case_weights)} source-points={len(point_weights)}"
         )
         return
 
-    _, baseline_loads = assign_ltp_case_shards(case_names, shard_count, baseline_case_weights, baseline_point_weights)
-    _, refreshed_loads = assign_ltp_case_shards(case_names, shard_count, case_weights, point_weights)
-    baseline_max = max(baseline_loads, default=0)
-    refreshed_max = max(refreshed_loads, default=0)
-    delta_load = refreshed_max - baseline_max
+    delta_load = chosen_max - rejected_max
     delta_abs = abs(delta_load)
-    delta_pct = (delta_abs / baseline_max * 100.0) if baseline_max else 0.0
-    baseline_label = "persisted" if (baseline_case_weights or baseline_point_weights) else "static"
+    delta_pct = (delta_abs / rejected_max * 100.0) if rejected_max else 0.0
     delta_sign = "-" if delta_load < 0 else "+"
     console(
-        f"[ltp-weight] {weight_key} {baseline_label} max-load {baseline_max} -> {refreshed_max}, "
+        f"[ltp-weight] {weight_key} choose {chosen_label} over {rejected_label}, "
+        f"max-load {rejected_max} -> {chosen_max}, "
         f"est {delta_sign}{format_duration(delta_abs)} "
         f"({delta_sign}{delta_pct:.1f}%) source-cases={len(case_weights)} source-points={len(point_weights)}"
     )
@@ -3345,22 +3645,21 @@ def load_ltp_case_runtime_weights(runtime: str, arch: str) -> tuple[dict[str, in
     if weight_key in LTP_CASE_RUNTIME_WEIGHT_CACHE:
         return LTP_CASE_RUNTIME_WEIGHT_CACHE[weight_key]
     if ENABLE_LTP_RUNTIME_WEIGHT_REFRESH and weight_key in LTP_RUNTIME_WEIGHT_REFRESH_VARIANTS:
-        selected_log = LTP_RUNTIME_WEIGHT_LOG_BY_VARIANT.get(weight_key)
-        case_weights, point_weights = (
-            parse_ltp_case_runtime_weights_from_log(selected_log, runtime)
-            if selected_log is not None
-            else ({}, {})
-        )
-        persist_ltp_case_runtime_weights(weight_key, case_weights, point_weights)
-        LTP_CASE_RUNTIME_WEIGHT_CACHE[weight_key] = (case_weights, point_weights)
+        case_weights, point_weights = parse_ltp_case_runtime_weights_for_variant(weight_key)
+        (
+            chosen_case_weights,
+            chosen_point_weights,
+            chosen_label,
+            _chosen_max,
+            _rejected_label,
+            _rejected_max,
+        ) = choose_ltp_runtime_weight_plan(weight_key, 1, [], case_weights, point_weights)
+        if case_weights and chosen_label == "refreshed":
+            persist_ltp_case_runtime_weights(weight_key, case_weights, point_weights)
+        LTP_CASE_RUNTIME_WEIGHT_CACHE[weight_key] = (chosen_case_weights, chosen_point_weights)
         return LTP_CASE_RUNTIME_WEIGHT_CACHE[weight_key]
     persisted_case_weights, persisted_point_weights = load_persisted_ltp_case_runtime_weights(weight_key)
-    selected_log = LTP_RUNTIME_WEIGHT_LOG_BY_VARIANT.get(weight_key)
-    local_case_weights, local_point_weights = (
-        parse_ltp_case_runtime_weights_from_log(selected_log, runtime)
-        if selected_log is not None and selected_log.exists()
-        else ({}, {})
-    )
+    local_case_weights, local_point_weights = parse_ltp_case_runtime_weights_for_variant(weight_key)
     LTP_CASE_RUNTIME_WEIGHT_CACHE[weight_key] = (
         merge_ltp_runtime_weight_maps(persisted_case_weights, local_case_weights),
         merge_ltp_runtime_weight_maps(persisted_point_weights, local_point_weights),
@@ -3519,14 +3818,28 @@ def ltp_weighted_case_queue(
     case_runtime_weights: dict[str, int],
     point_runtime_weights: dict[str, int],
 ) -> deque[tuple[int, str, int]]:
-    return deque(
+    weighted_cases = [
         (
             original_index,
             case_name,
             ltp_shard_case_weight(case_name, case_runtime_weights, point_runtime_weights),
         )
         for original_index, case_name in enumerate(case_names)
-    )
+    ]
+    weighted_cases.sort(key=lambda item: (-item[2], item[0], item[1]))
+    return deque(weighted_cases)
+
+
+def order_ltp_queue_cases(cases: list[LtpQueueCase]) -> list[LtpQueueCase]:
+    ordered = list(cases)
+    ordered.sort(key=lambda case: (-case.weight_sec, case.case_index, case.case_name))
+    return ordered
+
+
+def preview_ltp_queue_cases(cases: list[LtpQueueCase], limit: int = 8) -> str:
+    if not cases:
+        return "-"
+    return ", ".join(f"{case.case_name}={case.weight_sec}s" for case in cases[:limit])
 
 
 def ltp_queue_cases(
@@ -3553,7 +3866,7 @@ def ltp_queue_cases(
                 weight_sec=ltp_shard_case_weight(case_name, case_runtime_weights, point_runtime_weights),
             )
         )
-    return queue_cases
+    return order_ltp_queue_cases(queue_cases)
 
 
 def start_ltp_work_stealing_server(queue: LtpWorkStealingQueue) -> tuple[LtpWorkStealingHttpServer, str]:
@@ -3582,15 +3895,13 @@ def format_ltp_runtime_mul(value: float) -> str:
 
 
 def ltp_case_timeout_seconds(runtime_mul: float) -> int:
-    if runtime_mul >= 1.0:
-        return 0
-    return min(45, max(6, math.ceil(90 * runtime_mul)))
+    return LTP_SINGLE_CASE_TIMEOUT_SEC
 
 
 def parse_refresh_ltp_shard_weight_variants(chunks: list[str] | None) -> list[str]:
     if not chunks:
         return []
-    allowed = set(LTP_RUNTIME_WEIGHT_LOG_BY_VARIANT)
+    allowed = set(LTP_RUNTIME_WEIGHT_SAMPLE_BY_VARIANT)
     variants: list[str] = []
     seen: set[str] = set()
     invalid: list[str] = []
@@ -3631,6 +3942,7 @@ def ensure_ltp_script_uses_queue(
     script_timeout_mul = "10000" if runtime_mul >= 1.0 else format_ltp_runtime_mul(max(min(runtime_mul, 1.0), 0.1))
     script_runtime_mul = format_ltp_runtime_mul(runtime_mul)
     script_heartbeat_interval_sec = str(LTP_HEARTBEAT_INTERVAL_SEC)
+    script_case_timeout_sec = str(ltp_case_timeout_seconds(runtime_mul))
     ensure_private_regular_file(script_path)
     script_path.write_text(
         LTP_DYNAMIC_TESTCODE_SCRIPT_TEMPLATE.replace("__OSK_LTP_TARGET_DIR__", script_target_dir)
@@ -3639,6 +3951,7 @@ def ensure_ltp_script_uses_queue(
         .replace("__OSK_LTP_LIBRARY_PATH__", script_library_path)
         .replace("__OSK_LTP_TIMEOUT_MUL__", script_timeout_mul)
         .replace("__OSK_LTP_RUNTIME_MUL__", script_runtime_mul)
+        .replace("__OSK_LTP_CASE_TIMEOUT_SEC__", script_case_timeout_sec)
         .replace("__OSK_LTP_HEARTBEAT_INTERVAL_SEC__", script_heartbeat_interval_sec)
         .replace("__OSK_LTP_QUEUE_URL__", queue_url)
         .replace("__OSK_LTP_WORKER_ID__", str(worker_index + 1)),
@@ -3660,6 +3973,7 @@ def ensure_ltp_script_uses_stdin_queue(
     script_timeout_mul = "10000" if runtime_mul >= 1.0 else format_ltp_runtime_mul(max(min(runtime_mul, 1.0), 0.1))
     script_runtime_mul = format_ltp_runtime_mul(runtime_mul)
     script_heartbeat_interval_sec = str(LTP_HEARTBEAT_INTERVAL_SEC)
+    script_case_timeout_sec = str(ltp_case_timeout_seconds(runtime_mul))
     ensure_private_regular_file(script_path)
     script_path.write_text(
         LTP_STDIN_TESTCODE_SCRIPT_TEMPLATE.replace("__OSK_LTP_TARGET_DIR__", script_target_dir)
@@ -3668,6 +3982,7 @@ def ensure_ltp_script_uses_stdin_queue(
         .replace("__OSK_LTP_LIBRARY_PATH__", script_library_path)
         .replace("__OSK_LTP_TIMEOUT_MUL__", script_timeout_mul)
         .replace("__OSK_LTP_RUNTIME_MUL__", script_runtime_mul)
+        .replace("__OSK_LTP_CASE_TIMEOUT_SEC__", script_case_timeout_sec)
         .replace("__OSK_LTP_HEARTBEAT_INTERVAL_SEC__", script_heartbeat_interval_sec)
         .replace("__OSK_LTP_STDIN_READY__", LTP_STDIN_TESTCODE_READY_MARKER),
         encoding="utf-8",
@@ -3692,6 +4007,7 @@ def ensure_ltp_script_uses_runtest(
     script_timeout_mul = "10000" if runtime_mul >= 1.0 else format_ltp_runtime_mul(max(min(runtime_mul, 1.0), 0.1))
     script_runtime_mul = format_ltp_runtime_mul(runtime_mul)
     script_heartbeat_interval_sec = str(LTP_HEARTBEAT_INTERVAL_SEC)
+    script_case_timeout_sec = str(ltp_case_timeout_seconds(runtime_mul))
     src = LTP_RUNTEST_PATH
     if src.exists():
         runtest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -3710,6 +4026,7 @@ def ensure_ltp_script_uses_runtest(
             and '[ltp-heartbeat] $case_name' in content
             and f': "${{LTP_TIMEOUT_MUL:={script_timeout_mul}}}"' in content
             and f': "${{LTP_RUNTIME_MUL:={script_runtime_mul}}}"' in content
+            and f': "${{LTP_CASE_TIMEOUT_SEC:={script_case_timeout_sec}}}"' in content
             and f'/busybox sleep {script_heartbeat_interval_sec} 2>/dev/null || break' in content
             and 'ltp_ts_now() {' in content
             and 'ltp_emit_log_file() {' in content
@@ -3717,6 +4034,7 @@ def ensure_ltp_script_uses_runtest(
             and '    echo "FAIL LTP CASE $case_name : 0"' in content
             and '  set -- $line' in content
             and '  (cd "$target_dir" && /busybox setsid "$@") >"$log_file" 2>&1 &' in content
+            and 'echo "[ltp-case-timeout] $case_name exceeded ${LTP_CASE_TIMEOUT_SEC}s"' in content
             and '  ltp_emit_log_file "$log_file"' in content
             and '  ltp_emit_ts "$case_name" done' in content
             and '  ltp_emit_ts "$name" run' in content
@@ -3731,6 +4049,7 @@ def ensure_ltp_script_uses_runtest(
         .replace("__OSK_LTP_LIBRARY_PATH__", script_library_path)
         .replace("__OSK_LTP_TIMEOUT_MUL__", script_timeout_mul)
         .replace("__OSK_LTP_RUNTIME_MUL__", script_runtime_mul)
+        .replace("__OSK_LTP_CASE_TIMEOUT_SEC__", script_case_timeout_sec)
         .replace("__OSK_LTP_HEARTBEAT_INTERVAL_SEC__", script_heartbeat_interval_sec),
         encoding="utf-8",
     )
@@ -3758,6 +4077,7 @@ def ltp_raw_script_uses_runtest(runtime_root: Path) -> bool:
         and '[ltp-heartbeat] $case_name' in content
         and ': "${LTP_TIMEOUT_MUL:=' in content
         and ': "${LTP_RUNTIME_MUL:=' in content
+        and ': "${LTP_CASE_TIMEOUT_SEC:=' in content
         and f'/busybox sleep {LTP_HEARTBEAT_INTERVAL_SEC} 2>/dev/null || break' in content
         and 'ltp_ts_now() {' in content
         and 'ltp_emit_log_file() {' in content
@@ -3765,6 +4085,7 @@ def ltp_raw_script_uses_runtest(runtime_root: Path) -> bool:
         and '    echo "FAIL LTP CASE $case_name : 0"' in content
         and '  set -- $line' in content
         and '  (cd "$target_dir" && /busybox setsid "$@") >"$log_file" 2>&1 &' in content
+        and 'echo "[ltp-case-timeout] $case_name exceeded ${LTP_CASE_TIMEOUT_SEC}s"' in content
         and '  ltp_emit_log_file "$log_file"' in content
         and '  ltp_emit_ts "$case_name" done' in content
         and '  ltp_emit_ts "$name" run' in content
@@ -3792,6 +4113,47 @@ def prepare_qemu_fw() -> None:
         shutil.copy2(src, fw_dir / "efi-virtio.rom")
 
 
+def quick_kernel_cache_paths(arch: str) -> list[tuple[Path, str]]:
+    if arch == "rv":
+        return [
+            (ROOT / "kernel-rv", "kernel-rv"),
+        ]
+    return [
+        (ROOT / "kernel-la", "kernel-la"),
+        (ROOT / "kernel" / "work" / "la-qemu-bios.bin", "la-qemu-bios.bin"),
+        (ROOT / "kernel" / "work" / "la-qemu-bios.elf", "la-qemu-bios.elf"),
+    ]
+
+
+def quick_kernel_cache_key(arch: str) -> str | None:
+    token = quick_kernel_revision_token()
+    if token is None:
+        return None
+    return hash_key("quick-kernel", arch, token)
+
+
+def restore_quick_kernel_cache(arch: str, cache_key: str) -> bool:
+    cache_dir = SHARED_CACHE_ROOT / "kernel-quick" / cache_key
+    entries = quick_kernel_cache_paths(arch)
+    if not all((cache_dir / cache_name).exists() for _dst, cache_name in entries):
+        return False
+    for dst, cache_name in entries:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(cache_dir / cache_name, dst)
+    prepare_qemu_fw()
+    return True
+
+
+def update_quick_kernel_cache(arch: str, cache_key: str) -> None:
+    cache_dir = SHARED_CACHE_ROOT / "kernel-quick" / cache_key
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    for src, cache_name in quick_kernel_cache_paths(arch):
+        if not src.exists():
+            return
+    for src, cache_name in quick_kernel_cache_paths(arch):
+        shutil.copy2(src, cache_dir / cache_name)
+
+
 def ensure_prerequisites(
     build_jobs: int,
     rebuild_rootfs: bool,
@@ -3802,16 +4164,21 @@ def ensure_prerequisites(
     quick_reuse_only: bool = False,
 ) -> dict[tuple[str, str], Path]:
     stage_logs = logs_dir / "_stages"
+    effective_build_targets = effective_quick_build_targets(build_targets) if quick_reuse_only else build_targets
     if quick_reuse_only:
         needed_arches = {arch for arch, _runtime in variants_needed}
-        quick_kernel_cmds: list[list[str]] = []
+        quick_kernel_cmds: list[tuple[str, list[str]]] = []
         if "rv" in needed_arches:
-            quick_kernel_cmds.append(["make", "-C", "kernel", "ARCH=riscv", "OUT=../kernel-rv"])
+            quick_kernel_cmds.append(("rv", ["make", "-C", "kernel", "ARCH=riscv", "OUT=../kernel-rv"]))
         if "la" in needed_arches:
-            quick_kernel_cmds.append(["make", "-C", "kernel", "ARCH=loongarch", "OUT=../kernel-la"])
-            quick_kernel_cmds.append(["make", "la-bios"])
-        for index, cmd in enumerate(quick_kernel_cmds, start=1):
+            quick_kernel_cmds.append(("la", ["make", "-C", "kernel", "ARCH=loongarch", "OUT=../kernel-la"]))
+            quick_kernel_cmds.append(("la", ["make", "la-bios"]))
+        for index, (arch, cmd) in enumerate(quick_kernel_cmds, start=1):
             stage_suffix = f" {index}/{len(quick_kernel_cmds)}" if len(quick_kernel_cmds) > 1 else ""
+            cache_key = quick_kernel_cache_key(arch)
+            if cache_key is not None and restore_quick_kernel_cache(arch, cache_key):
+                complete_stage(f"reuse kernels quick{stage_suffix}")
+                continue
             stage_name = f"build kernels quick{stage_suffix}"
             require_logged_success(
                 stage_name,
@@ -3820,6 +4187,8 @@ def ensure_prerequisites(
                 log_path=stage_logs / f"kernel-build-quick-{index}.log",
                 env={**os.environ, "BUILD_JOBS": str(build_jobs)},
             )
+            if cache_key is not None:
+                update_quick_kernel_cache(arch, cache_key)
         prepare_qemu_fw()
     else:
         kernel_lock_path = SHARED_CACHE_ROOT / ".kernel-build.lock"
@@ -3841,7 +4210,7 @@ def ensure_prerequisites(
         marker = out_dir / ".osk_full_rootfs_ready"
         lock_path = rootfs_root / f".{arch}-{runtime}.lock"
         with FileLock(lock_path):
-            stale = variant_rootfs_is_stale(out_dir, runtime, build_targets)
+            stale = variant_rootfs_is_stale(out_dir, runtime, effective_build_targets)
             needs_rebuild = rebuild_rootfs or not marker.exists() or stale
             if quick_reuse_only and not needs_rebuild:
                 complete_stage(f"reuse rootfs {arch}-{runtime}")
@@ -3857,7 +4226,7 @@ def ensure_prerequisites(
                     env={
                         **os.environ,
                         "BUILD_JOBS": str(build_jobs),
-                        **({"FULL_SUITE_TARGETS": build_targets} if build_targets else {}),
+                        **({"FULL_SUITE_TARGETS": effective_build_targets} if effective_build_targets else {}),
                     },
                 )
                 marker.write_text(datetime.now(timezone.utc).isoformat(), encoding="utf-8")
@@ -4670,12 +5039,37 @@ def emit_live_ltp_case_progress(
 
 
 def should_retry_official_sample(result: CaseResult) -> bool:
-    if not result.timed_out:
-        return False
     if not result.error:
         return False
-    return result.error.startswith("earlier group stopped before start marker for ") or result.error.startswith(
-        "earlier group watchdog timeout before start marker for "
+    return (
+        result.error.startswith("earlier group stopped before start marker for ")
+        or result.error.startswith("earlier group watchdog timeout before start marker for ")
+        or result.error.startswith("incomplete group markers for ")
+        or result.error.startswith("group timed out before end marker for ")
+    )
+
+
+def can_isolate_retry_head(
+    pending_samples: list[str],
+    arch_results: dict[str, CaseResult],
+    retry_samples: list[str],
+) -> bool:
+    if retry_samples != pending_samples or len(pending_samples) <= 1:
+        return False
+    head = pending_samples[0]
+    head_result = arch_results.get(head)
+    if head_result is None or not should_retry_official_sample(head_result):
+        return False
+    head_error = head_result.error or ""
+    if not (
+        head_error.startswith("incomplete group markers for ")
+        or head_error.startswith("group timed out before end marker for ")
+    ):
+        return False
+    return any(
+        (arch_results.get(sample).error or "").startswith("earlier group")
+        for sample in pending_samples[1:]
+        if arch_results.get(sample) is not None
     )
 
 
@@ -4771,29 +5165,30 @@ def run_official_arch(
             return arch_results
 
         raw_text = read_text(raw_log_path)
+        raw_lines = raw_text.splitlines()
         raw_watchdog_reason = find_competition_script_watchdog_reason(raw_text)
-        prior_group_timeout: str | None = None
+        raw_fatal_reason = fatal_log_reason(raw_lines)
+        prior_group_stop_reason: str | None = None
         for sample in relevant_samples:
             if sample in progress.completed_results:
                 result = progress.completed_results[sample]
                 result.returncode = returncode
                 arch_results[sample] = result
-                if result.timed_out:
-                    prior_group_timeout = result.error or result.stop_reason or prior_group_timeout
+                if should_retry_official_sample(result):
+                    prior_group_stop_reason = result.error or result.stop_reason or prior_group_stop_reason
                 continue
             group, runtime, _ = parse_sample(sample)
             started_at = progress.started.pop((group, runtime), None)
             sample_log_path = logs_dir / f"{sample}.out"
             group_name = f"{group}-{runtime}"
-            if prior_group_timeout is not None:
-                result = zero_result_for_incomplete_group(
+            if prior_group_stop_reason is not None:
+                result = stopped_before_group_result(
                     sample,
                     sample_log_path,
-                    prior_group_timeout,
-                    timed_out=True,
-                    stop_reason=prior_group_timeout,
+                    group_name,
+                    prior_group_stop_reason,
+                    returncode,
                 )
-                result.returncode = returncode
                 arch_results[sample] = result
                 continue
             group_log_status = write_group_log(raw_log_path, group_name, sample_log_path)
@@ -4809,7 +5204,16 @@ def run_official_arch(
                         timed_out=True,
                         stop_reason=raw_watchdog_reason,
                     )
-                    prior_group_timeout = raw_watchdog_reason
+                    prior_group_stop_reason = raw_watchdog_reason
+                elif raw_fatal_reason is not None:
+                    result = stopped_before_group_result(
+                        sample,
+                        sample_log_path,
+                        group_name,
+                        raw_fatal_reason,
+                        returncode,
+                    )
+                    prior_group_stop_reason = raw_fatal_reason
                 else:
                     result = zero_result_for_missing_group(
                         sample,
@@ -4834,8 +5238,7 @@ def run_official_arch(
                     timed_out=partial_timed_out,
                     returncode=returncode,
                 )
-                if partial_timed_out:
-                    prior_group_timeout = error
+                prior_group_stop_reason = result.error or result.stop_reason or error
                 arch_results[sample] = result
                 emit_recovered_official_case(arch, group, runtime, started_at, result)
                 continue
@@ -4858,6 +5261,7 @@ def run_qemu(
     timeout: int | None,
     *,
     silent_idle_timeout: float | None = SILENT_IDLE_TIMEOUT,
+    pre_output_idle_timeout: float | None = None,
     on_output: Callable[[list[str], float], str | None] | None = None,
     on_poll: Callable[[float], str | None] | None = None,
     suppress_live_log: bool = False,
@@ -4869,6 +5273,7 @@ def run_qemu(
         timeout=timeout,
         fatal_idle_timeout=FATAL_IDLE_TIMEOUT,
         silent_idle_timeout=silent_idle_timeout,
+        pre_output_idle_timeout=pre_output_idle_timeout,
         on_output=on_output,
         on_poll=on_poll,
         suppress_live_log=suppress_live_log,
@@ -4906,6 +5311,7 @@ def run_sample_from_rootfs(
     expected_cases_override: list[str] | None = None,
     log_stem: str | None = None,
     silent_idle_timeout: float | None = SILENT_IDLE_TIMEOUT,
+    pre_output_idle_timeout: float | None = None,
     cleanup_base_image: bool = False,
     on_output: Callable[[list[str], float], str | None] | None = None,
     on_poll: Callable[[float], str | None] | None = None,
@@ -4926,6 +5332,7 @@ def run_sample_from_rootfs(
             log_path,
             timeout,
             silent_idle_timeout=silent_idle_timeout,
+            pre_output_idle_timeout=pre_output_idle_timeout,
             on_output=on_output,
             on_poll=on_poll,
             suppress_live_log=suppress_live_log,
@@ -5085,6 +5492,7 @@ def run_ltp_persistent_worker(
             expected_cases_override=None,
             log_stem=f"{shard_log_label}.try{attempt}",
             silent_idle_timeout=SHARDED_LTP_SILENT_IDLE_TIMEOUT,
+            pre_output_idle_timeout=SHARDED_LTP_SILENT_IDLE_TIMEOUT,
             cleanup_base_image=True,
             on_output=on_worker_output,
             on_poll=None if progress_reporter is None else progress_reporter.poll,
@@ -5237,6 +5645,7 @@ def run_ltp_host_lease_worker(
             expected_cases_override=[lease.case_name],
             log_stem=f"{shard_log_label}.lease{lease_index}",
             silent_idle_timeout=SHARDED_LTP_SILENT_IDLE_TIMEOUT,
+            pre_output_idle_timeout=SHARDED_LTP_SILENT_IDLE_TIMEOUT,
             cleanup_base_image=True,
             on_output=on_worker_output,
             on_poll=None if progress_reporter is None else progress_reporter.poll,
@@ -5411,10 +5820,23 @@ def run_ltp_stdin_persistent_worker(
                         stop_reason = f"timeout after {timeout}s"
                         terminate_process_group(proc)
                         break
+                    snapshot_now = time.monotonic()
+                    if (
+                        SHARDED_LTP_SILENT_IDLE_TIMEOUT is not None
+                        and size == 0
+                        and snapshot_now - start > SHARDED_LTP_SILENT_IDLE_TIMEOUT
+                    ):
+                        timed_out = True
+                        stop_reason = (
+                            f"silent boot stall after {SHARDED_LTP_SILENT_IDLE_TIMEOUT:.0f}s "
+                            "before first log line"
+                        )
+                        terminate_process_group(proc)
+                        break
                     if (
                         SHARDED_LTP_SILENT_IDLE_TIMEOUT is not None
                         and size > 0
-                        and time.monotonic() - last_progress_at > SHARDED_LTP_SILENT_IDLE_TIMEOUT
+                        and snapshot_now - last_progress_at > SHARDED_LTP_SILENT_IDLE_TIMEOUT
                     ):
                         timed_out = True
                         stop_reason = f"silent log stall after {SHARDED_LTP_SILENT_IDLE_TIMEOUT:.0f}s idle"
@@ -5423,12 +5845,14 @@ def run_ltp_stdin_persistent_worker(
                     if (
                         FATAL_IDLE_TIMEOUT is not None
                         and fatal_seen_at is not None
-                        and time.monotonic() - last_progress_at > FATAL_IDLE_TIMEOUT
+                        and snapshot_now - last_progress_at > FATAL_IDLE_TIMEOUT
                     ):
                         timed_out = True
                         stop_reason = f"fatal log stall after {fatal_reason} ({FATAL_IDLE_TIMEOUT:.0f}s idle)"
                         terminate_process_group(proc)
                         break
+                    if progress_reporter is not None:
+                        progress_reporter.poll(snapshot_now)
                     time.sleep(LIVE_POLL_INTERVAL)
             finally:
                 clear_live_line()
@@ -5595,6 +6019,7 @@ def run_ltp_shard_with_restarts(
             expected_cases_override=remaining_cases,
             log_stem=f"{shard_log_label}.try{attempt}",
             silent_idle_timeout=SHARDED_LTP_SILENT_IDLE_TIMEOUT,
+            pre_output_idle_timeout=SHARDED_LTP_SILENT_IDLE_TIMEOUT,
             cleanup_base_image=True,
             on_output=(
                 None
@@ -5703,11 +6128,23 @@ def run_ltp_sharded_sample(
     ordered_cases = ltp_case_names(start_case=ltp_start_case)
     worker_count = max(1, min(shard_count, len(ordered_cases)))
     case_runtime_weights, point_runtime_weights = load_ltp_case_runtime_weights(runtime, arch)
+    weighted_queue_preview = order_ltp_queue_cases(
+        [
+            LtpQueueCase(
+                case_index=case_index,
+                case_name=case_name,
+                runtest_line="",
+                weight_sec=ltp_shard_case_weight(case_name, case_runtime_weights, point_runtime_weights),
+            )
+            for case_index, case_name in enumerate(ordered_cases)
+        ]
+    )
     heavy_cases = [
-        (case_name, case_runtime_weights.get(case_name, 0))
-        for case_name in ordered_cases
-        if case_runtime_weights.get(case_name, 0) >= LTP_HEAVY_CASE_WEIGHT_THRESHOLD
+        (case.case_name, case.weight_sec)
+        for case in weighted_queue_preview
+        if case.weight_sec >= LTP_HEAVY_CASE_WEIGHT_THRESHOLD
     ]
+    queue_preview = preview_ltp_queue_cases(weighted_queue_preview)
     if heavy_cases:
         heavy_summary = ", ".join(
             f"{case_name}={weight}s"
@@ -5715,16 +6152,17 @@ def run_ltp_sharded_sample(
         )
         console(
             f"[ltp-schedule] {official_case_label(group, runtime, arch)} "
-            f"work-stealing=per-case "
+            f"work-stealing=weighted-per-case "
             f"heavy-cases={len(heavy_cases)} threshold={LTP_HEAVY_CASE_WEIGHT_THRESHOLD}s "
             f"weights=case:{len(case_runtime_weights)} point:{len(point_runtime_weights)} "
-            f"top={heavy_summary}"
+            f"top={heavy_summary} frontload={queue_preview}"
         )
     else:
         console(
             f"[ltp-schedule] {official_case_label(group, runtime, arch)} "
-            f"work-stealing=per-case "
-            f"weights=case:{len(case_runtime_weights)} point:{len(point_runtime_weights)}"
+            f"work-stealing=weighted-per-case "
+            f"weights=case:{len(case_runtime_weights)} point:{len(point_runtime_weights)} "
+            f"frontload={queue_preview}"
         )
     worker_rootfs_specs: list[tuple[int, Path]] = []
     official_rootfs_root = WORK_ROOT / "rootfs-official"
@@ -6217,6 +6655,27 @@ def raw_arch_log_generated_this_run(path: Path, started_at: datetime) -> bool:
     return path.stat().st_mtime >= started_at.timestamp() - 1.0
 
 
+def should_export_raw_arch_log(
+    arch: str,
+    raw_log_path: Path,
+    selected_samples: list[str],
+    results: dict[str, CaseResult],
+    started_at: datetime,
+) -> bool:
+    if not arch_samples_for_run(selected_samples, arch):
+        return False
+    if not raw_arch_log_generated_this_run(raw_log_path, started_at):
+        return False
+    completed_samples = [
+        sample
+        for sample in SAMPLE_ORDER
+        if sample in selected_samples and sample.endswith(f"-{arch}") and sample in results and results[sample].log_path.exists()
+    ]
+    if not completed_samples:
+        return False
+    return all(results[sample].log_path == raw_log_path for sample in completed_samples)
+
+
 def render_arch_export_text(
     arch: str,
     selected_samples: list[str],
@@ -6250,7 +6709,7 @@ def sync_local_named_outputs(
     for arch in ARCH_ORDER:
         raw_log_path = logs_dir / f"official-{arch}.raw.out"
         export_targets = [LOCAL_EXPORT_DIR / name for name in LOCAL_ARCH_EXPORT_NAMES[arch]]
-        if arch_samples_for_run(selected_samples, arch) and raw_arch_log_generated_this_run(raw_log_path, started_at):
+        if should_export_raw_arch_log(arch, raw_log_path, selected_samples, results, started_at):
             for export_target in export_targets:
                 copy_export_file(raw_log_path, export_target)
             continue
@@ -6280,12 +6739,12 @@ def main() -> int:
     parser.add_argument("--report", default="dev/full-suite/score.txt", help="Report output path.")
     parser.add_argument(
         "--work-root",
-        default="dev/full-suite",
+        default=str(default_work_root()),
         help="Per-job working directory for logs, isolated official rootfs, and overlays.",
     )
     parser.add_argument(
         "--shared-cache-root",
-        default="dev/full-suite",
+        default=str(default_shared_cache_root()),
         help="Shared readonly cache root for reusable rootfs variants and base images.",
     )
     parser.add_argument("--resume-log", help="Append output to this transcript log and skip samples already completed there.")
@@ -6317,6 +6776,11 @@ def main() -> int:
         help="Rebuild only the needed arch kernel, reuse cached rootfs, and reuse shared official rootfs for fast single-point retests.",
     )
     parser.add_argument(
+        "--prepare-only",
+        action="store_true",
+        help="Only prepare/reuse prerequisite kernels and rootfs for the selected samples, then exit without running cases.",
+    )
+    parser.add_argument(
         "--refresh-ltp-shard-weights",
         action="append",
         default=[],
@@ -6324,7 +6788,8 @@ def main() -> int:
         help=(
             "Refresh and persist LTP shard runtime weights for one or more variants "
             "(supports repeated flags and comma-separated values, e.g. glibc-rv,musl-rv) "
-            f"from current logs/local_*.txt. Allowed: {', '.join(sorted(LTP_RUNTIME_WEIGHT_LOG_BY_VARIANT))}."
+            f"from current detailed LTP logs (with local exports only as fallback). "
+            f"Allowed: {', '.join(sorted(LTP_RUNTIME_WEIGHT_SAMPLE_BY_VARIANT))}."
         ),
     )
     args = parser.parse_args()
@@ -6427,6 +6892,10 @@ def main() -> int:
                 stop_reason = str(exc)
                 console(f"[fail] {stop_reason}", err=True)
                 exit_code = 1
+            else:
+                if args.prepare_only:
+                    console("[prepare-only] prerequisites ready")
+                    samples = []
 
         if variants is not None and samples:
             parallel_ltp_shard_mode = (
@@ -6667,6 +7136,16 @@ def main() -> int:
                         if not retry_samples:
                             break
                         if retry_samples == pending_arch_samples:
+                            if can_isolate_retry_head(pending_arch_samples, arch_results, retry_samples):
+                                blocker = pending_arch_samples[0]
+                                results[blocker] = arch_results[blocker]
+                                pending_arch_samples = pending_arch_samples[1:]
+                                console(
+                                    f"[retry] official-{arch}: isolate blocker {blocker}, continue remaining {len(pending_arch_samples)} samples",
+                                    err=False,
+                                )
+                                flush_report(report_path, results, started_at, stop_reason)
+                                continue
                             results.update(arch_results)
                             console(
                                 f"[timeout] official-{arch}: no progress before stop, cannot isolate remaining samples",
