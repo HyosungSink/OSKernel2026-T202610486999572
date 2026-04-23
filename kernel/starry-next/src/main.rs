@@ -28,6 +28,7 @@ use core::{
     time::Duration,
 };
 
+use axalloc::global_allocator;
 use axerrno::{AxError, AxResult};
 use axfs::api::File;
 use axhal::arch::UspaceContext;
@@ -62,6 +63,8 @@ static COMPETITION_STDOUT_LINE_BUFFER: Mutex<String> = Mutex::new(String::new())
 static COMPETITION_TOTAL_WATCHDOG_TOKEN: AtomicU64 = AtomicU64::new(0);
 static COMPETITION_TOTAL_DEADLINE_NS: AtomicU64 = AtomicU64::new(0);
 static COMPETITION_TOTAL_TIMED_OUT: AtomicU64 = AtomicU64::new(0);
+static LTP_DIAG_RUN_SEQ: AtomicU64 = AtomicU64::new(0);
+static LTP_DIAG_DONE_SEQ: AtomicU64 = AtomicU64::new(0);
 
 const SIGKILL_SIGNUM: usize = 9;
 const COMPETITION_TOTAL_TIMEOUT: Duration = Duration::from_secs(3600);
@@ -253,6 +256,38 @@ fn parse_ltp_case_timestamp_event(line: &str) -> Option<(&str, &'static str)> {
     None
 }
 
+fn ltp_case_needs_online_diag(case_name: &str, phase: &str, seq: u64) -> bool {
+    seq <= 8
+        || seq % 25 == 0
+        || case_name == "epoll_ctl01"
+        || case_name == "execve05"
+        || case_name == "fallocate05"
+        || case_name == "geteuid01_16"
+        || case_name.starts_with("exec")
+        || case_name.starts_with("faccessat")
+        || case_name.starts_with("fallocate")
+        || case_name.starts_with("shmctl")
+        || phase == "done" && seq <= 8
+}
+
+fn emit_online_task_memory_diag(kind: &str, phase: &str, name: &str, seq: u64) {
+    let allocator = global_allocator();
+    let counts = task::diagnostic_task_counts();
+    println!(
+        "[online-diag] kind={kind} phase={phase} name={name} seq={seq} now_ms={} available_pages={} used_bytes={} available_bytes={} live_tasks={} live_exited_tasks={} process_leaders={} zombie_processes={} script_tagged_tasks={} script_tagged_exited_tasks={}",
+        monotonic_time_nanos() / 1_000_000,
+        allocator.available_pages(),
+        allocator.used_bytes(),
+        allocator.available_bytes(),
+        counts.live_tasks,
+        counts.live_exited_tasks,
+        counts.process_leaders,
+        counts.zombie_processes,
+        counts.script_tagged_tasks,
+        counts.script_tagged_exited_tasks
+    );
+}
+
 fn emit_kernel_ltp_case_timestamp(line: &str) {
     let Some((case_name, phase)) = parse_ltp_case_timestamp_event(line) else {
         return;
@@ -261,6 +296,13 @@ fn emit_kernel_ltp_case_timestamp(line: &str) {
     let seconds = now_ns / 1_000_000_000;
     let centis = (now_ns % 1_000_000_000) / 10_000_000;
     println!("[ltp-ts {seconds}.{centis:02}] case={case_name} phase={phase}");
+    let seq = match phase {
+        "run" => LTP_DIAG_RUN_SEQ.fetch_add(1, Ordering::SeqCst) + 1,
+        _ => LTP_DIAG_DONE_SEQ.fetch_add(1, Ordering::SeqCst) + 1,
+    };
+    if ltp_case_needs_online_diag(case_name, phase, seq) {
+        emit_online_task_memory_diag("ltp-case", phase, case_name, seq);
+    }
 }
 
 pub(crate) fn note_competition_pass_point() {
@@ -526,7 +568,7 @@ run_ltp_case() {{
   local case_name="$1"
   shift
   local log_file="/tmp/.ltp_${{case_name}}_$$.log"
-  local case_pid hb_pid ret
+  local case_pid hb_pid ret log_bytes
   : > "$log_file"
 
   kill_case_session() {{
@@ -536,6 +578,7 @@ run_ltp_case() {{
 
   (cd "$target_dir" && /busybox setsid "$@") >"$log_file" 2>&1 &
   case_pid=$!
+  echo "[osk-ltp-diag] case=$case_name pid=$case_pid phase=started"
   (
     while kill -0 "$case_pid" 2>/dev/null; do
       /busybox sleep 30 2>/dev/null || break
@@ -546,6 +589,8 @@ run_ltp_case() {{
   hb_pid=$!
   wait "$case_pid"
   ret=$?
+  log_bytes=$(/busybox wc -c < "$log_file" 2>/dev/null || echo -1)
+  echo "[osk-ltp-diag] case=$case_name phase=wait-done ret=$ret log_bytes=$log_bytes"
   kill "$hb_pid" 2>/dev/null
   wait "$hb_pid" 2>/dev/null
   kill_case_session TERM
@@ -578,6 +623,7 @@ run_ltp_case() {{
         ;;
     esac
   done < "$log_file"
+  echo "[osk-ltp-diag] case=$case_name phase=summary failed=$failed broken=$broken skipped=$skipped ret=$ret log_bytes=$log_bytes"
   if [ "$ret" -eq 0 ] && [ "$failed" -eq 0 ] && [ "$broken" -eq 0 ]; then
     echo "PASS LTP CASE $case_name : 0"
     echo "FAIL LTP CASE $case_name : 0"
@@ -1078,6 +1124,12 @@ fn run_user_program(args: Vec<String>) -> AxResult<Option<i32>> {
         match try_load_user_program(&program_path, &args) {
             Ok(loaded) => loaded,
             Err(AxError::NoMemory) => {
+                emit_online_task_memory_diag(
+                    "user-program",
+                    "load-nomem",
+                    program_path.as_str(),
+                    0,
+                );
                 let (reclaimed_stack_pages, reclaimed_exec_cache_pages) =
                     task::reclaim_runtime_memory("boot_run_user_program");
                 if reclaimed_stack_pages > 0 || reclaimed_exec_cache_pages > 0 {
@@ -1124,6 +1176,10 @@ fn run_user_program(args: Vec<String>) -> AxResult<Option<i32>> {
     let exit_code = user_task.join();
     let cleaned = task::kill_current_competition_script_tree(SIGKILL_SIGNUM);
     task::set_competition_script_root(None);
+    warn!(
+        "[online-diag] kind=user-program phase=exit program={} display={} exit_code={:?} cleaned_tasks={}",
+        program_path, display_name, exit_code, cleaned
+    );
     if cleaned > 1 {
         warn!(
             "Cleaned residual script tasks after exit: program={} tasks={}",
@@ -1158,8 +1214,19 @@ fn run_test_script(script: String) {
         script,
         monotonic_time_nanos() / 1_000_000
     );
-    if let Err(err) = run_user_program(vec![shell, "sh".to_string(), script.clone()]) {
-        warn!("Failed to start test script {}: {:?}", script, err);
+    emit_online_task_memory_diag("script", "start", script.as_str(), 0);
+    match run_user_program(vec![shell, "sh".to_string(), script.clone()]) {
+        Ok(exit_code) => {
+            emit_online_task_memory_diag("script", "end", script.as_str(), 0);
+            warn!(
+                "[online-diag] kind=script phase=exit path={} exit_code={:?}",
+                script, exit_code
+            );
+        }
+        Err(err) => {
+            emit_online_task_memory_diag("script", "start-failed", script.as_str(), 0);
+            warn!("Failed to start test script {}: {:?}", script, err);
+        }
     }
     if let Some(prev_cwd) = prev_cwd {
         let _ = axfs::api::set_current_dir(prev_cwd.as_str());

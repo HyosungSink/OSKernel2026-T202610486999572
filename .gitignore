@@ -20,10 +20,10 @@
 /kernel/starry-next/*.bin
 /kernel/starry-next/*.elf
 /kernel/starry-next/arceos/disk.img
-# Refreshed embedded runtime cache from `tools/refresh_embedded_runtime.sh`.
-# Files here are regenerated local build inputs; routine refreshes such as
-# `cyclictest` / `hackbench` binary changes should not be committed.
-/kernel/starry-next/embedded-runtime-refresh/**
+# Vendored embedded runtime payload used by online/official reproduction.
+# Keep the committed runtime tree, but ignore refresh temp output and stamp
+# churn from local regeneration.
+/kernel/starry-next/embedded-runtime-refresh/.osk_refresh_stamp
 /kernel/starry-next/embedded-runtime-refresh.tmp/**
 
 # Optional runtime disk images mentioned in the contest docs.

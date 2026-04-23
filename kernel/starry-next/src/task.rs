@@ -67,6 +67,7 @@ static RUNTIME_RECLAIM_LOG_COUNT: AtomicU64 = AtomicU64::new(0);
 static TASK_ALLOC_PRESSURE_LOG_COUNT: AtomicU64 = AtomicU64::new(0);
 static EXEC_PREPARE_LOG_COUNT: AtomicU64 = AtomicU64::new(0);
 static EXEC_PREPARE_SEQ: AtomicU64 = AtomicU64::new(0);
+static ONLINE_TASK_REGISTRY_LOG_COUNT: AtomicU64 = AtomicU64::new(0);
 
 const REPEATED_LOG_BURST: usize = 4;
 const REPEATED_LOG_PERIOD: usize = 64;
@@ -80,6 +81,16 @@ pub(crate) struct RuntimeReclaimStats {
     pub stack_pages: usize,
     pub exec_cache_pages: usize,
     pub fs_cache_entries: usize,
+}
+
+#[derive(Clone, Copy, Default)]
+pub(crate) struct DiagnosticTaskCounts {
+    pub live_tasks: usize,
+    pub live_exited_tasks: usize,
+    pub process_leaders: usize,
+    pub zombie_processes: usize,
+    pub script_tagged_tasks: usize,
+    pub script_tagged_exited_tasks: usize,
 }
 
 fn competition_script_root() -> &'static Mutex<Option<AxTaskRef>> {
@@ -215,6 +226,14 @@ fn should_log_exec_prepare_pressure() -> bool {
     slot <= REPEATED_LOG_BURST as u64 || slot.is_power_of_two()
 }
 
+fn should_log_online_task_registry_event(tagged_tasks: usize, zombies: usize) -> bool {
+    let slot = ONLINE_TASK_REGISTRY_LOG_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
+    if zombies > 0 {
+        return slot <= 32 || slot.is_power_of_two();
+    }
+    tagged_tasks <= 8 || tagged_tasks.is_power_of_two()
+}
+
 fn runtime_reclaim_low_watermark_pages() -> usize {
     let total_pages = axconfig::plat::PHYS_MEMORY_SIZE / PAGE_SIZE_4K;
     total_pages.div_ceil(32).clamp(4096, 16384)
@@ -260,6 +279,34 @@ pub(crate) fn reclaim_runtime_memory_detail(reason: &str) -> RuntimeReclaimStats
 pub(crate) fn reclaim_runtime_memory(reason: &str) -> (usize, usize) {
     let stats = reclaim_runtime_memory_detail(reason);
     (stats.stack_pages, stats.exec_cache_pages)
+}
+
+pub(crate) fn diagnostic_task_counts() -> DiagnosticTaskCounts {
+    let script_tag = competition_script_root()
+        .lock()
+        .as_ref()
+        .map(|task| task.task_ext().competition_script_tag())
+        .unwrap_or(0);
+    let mut counts = DiagnosticTaskCounts::default();
+    {
+        let tasks = live_tasks().lock();
+        for task in tasks.values().filter_map(|task| task.upgrade()) {
+            counts.live_tasks += 1;
+            let exited = task.state() == axtask::TaskState::Exited;
+            if exited {
+                counts.live_exited_tasks += 1;
+            }
+            if script_tag != 0 && task.task_ext().competition_script_tag() == script_tag {
+                counts.script_tagged_tasks += 1;
+                if exited {
+                    counts.script_tagged_exited_tasks += 1;
+                }
+            }
+        }
+    }
+    counts.process_leaders = process_leaders().lock().len();
+    counts.zombie_processes = zombie_processes().lock().len();
+    counts
 }
 
 pub(crate) fn prepare_runtime_for_exec(reason: &str, path: &str) {
@@ -578,6 +625,29 @@ pub(crate) fn register_live_task(task: &AxTaskRef) {
             .insert(task.task_ext().proc_id as u64, Arc::downgrade(task));
         ensure_proc_pid_entries(task.task_ext().proc_id as u64);
     }
+    let script_tag = task.task_ext().competition_script_tag();
+    if script_tag != 0 {
+        let counts = diagnostic_task_counts();
+        if should_log_online_task_registry_event(counts.script_tagged_tasks, counts.zombie_processes)
+        {
+            warn!(
+                "[online-task-reg] phase=register tid={} pid={} leader_tid={} name={} exec_path={} state={} script_tag={} live_tasks={} live_exited_tasks={} process_leaders={} zombie_processes={} script_tagged_tasks={} script_tagged_exited_tasks={}",
+                task.id().as_u64(),
+                task.task_ext().proc_id,
+                task.task_ext().leader_tid(),
+                task.name(),
+                task.task_ext().exec_path(),
+                task_state_char(task),
+                script_tag,
+                counts.live_tasks,
+                counts.live_exited_tasks,
+                counts.process_leaders,
+                counts.zombie_processes,
+                counts.script_tagged_tasks,
+                counts.script_tagged_exited_tasks,
+            );
+        }
+    }
 }
 
 pub(crate) fn unregister_live_task(task: &AxTaskRef) {
@@ -593,14 +663,64 @@ pub(crate) fn unregister_live_task(task: &AxTaskRef) {
             leaders.remove(&pid);
         }
     }
+    let script_tag = task.task_ext().competition_script_tag();
+    if script_tag != 0 {
+        let counts = diagnostic_task_counts();
+        if should_log_online_task_registry_event(counts.script_tagged_tasks, counts.zombie_processes)
+        {
+            warn!(
+                "[online-task-reg] phase=unregister tid={} pid={} leader_tid={} name={} exec_path={} state={} script_tag={} live_tasks={} live_exited_tasks={} process_leaders={} zombie_processes={} script_tagged_tasks={} script_tagged_exited_tasks={}",
+                task.id().as_u64(),
+                task.task_ext().proc_id,
+                task.task_ext().leader_tid(),
+                task.name(),
+                task.task_ext().exec_path(),
+                task_state_char(task),
+                script_tag,
+                counts.live_tasks,
+                counts.live_exited_tasks,
+                counts.process_leaders,
+                counts.zombie_processes,
+                counts.script_tagged_tasks,
+                counts.script_tagged_exited_tasks,
+            );
+        }
+    }
 }
 
 pub(crate) fn register_zombie_process(zombie: ZombieProcess) {
     zombie_processes().lock().insert(zombie.pid, zombie);
+    let counts = diagnostic_task_counts();
+    if should_log_online_task_registry_event(counts.script_tagged_tasks, counts.zombie_processes) {
+        warn!(
+            "[online-task-reg] phase=register-zombie pid={} pgid={} live_tasks={} live_exited_tasks={} process_leaders={} zombie_processes={} script_tagged_tasks={} script_tagged_exited_tasks={}",
+            zombie.pid,
+            zombie.process_group,
+            counts.live_tasks,
+            counts.live_exited_tasks,
+            counts.process_leaders,
+            counts.zombie_processes,
+            counts.script_tagged_tasks,
+            counts.script_tagged_exited_tasks,
+        );
+    }
 }
 
 pub(crate) fn unregister_zombie_process(pid: u64) {
     zombie_processes().lock().remove(&pid);
+    let counts = diagnostic_task_counts();
+    if should_log_online_task_registry_event(counts.script_tagged_tasks, counts.zombie_processes) {
+        warn!(
+            "[online-task-reg] phase=unregister-zombie pid={} live_tasks={} live_exited_tasks={} process_leaders={} zombie_processes={} script_tagged_tasks={} script_tagged_exited_tasks={}",
+            pid,
+            counts.live_tasks,
+            counts.live_exited_tasks,
+            counts.process_leaders,
+            counts.zombie_processes,
+            counts.script_tagged_tasks,
+            counts.script_tagged_exited_tasks,
+        );
+    }
 }
 
 pub(crate) fn find_zombie_process_by_pid(pid: usize) -> Option<ZombieProcess> {

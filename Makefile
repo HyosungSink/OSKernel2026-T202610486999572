@@ -29,6 +29,7 @@ BUILD_REMAINING_IMAGE := tools/build_remaining_image.sh
 TESTSUITS_ROOT ?= testsuits-for-oskernel-pre-2025
 ONLINE_REFRESH_ROOT := kernel/starry-next/embedded-runtime-refresh
 REFRESH_EMBEDDED_RUNTIME := tools/refresh_embedded_runtime.sh
+BUILD_JOBS ?= $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 10)
 
 # Online judge only calls `make all`; keep the full submission pipeline here.
 # Extra runtime fixes are embedded into the kernels by kernel/starry-next/build.rs,
@@ -66,10 +67,10 @@ online-self-contained: refresh-embedded-runtime
 	fi
 
 kernel-rv: online-self-contained
-	$(MAKE) -C kernel ARCH=riscv OUT=../kernel-rv
+	+$(MAKE) -j$(BUILD_JOBS) -C kernel ARCH=riscv OUT=../kernel-rv
 
 kernel-la: online-self-contained
-	$(MAKE) -C kernel ARCH=loongarch OUT=../kernel-la
+	+$(MAKE) -j$(BUILD_JOBS) -C kernel ARCH=loongarch OUT=../kernel-la
 
 la-bios: $(LA_BIOS_BIN)
 
